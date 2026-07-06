@@ -340,3 +340,253 @@
 .checkbox-text {
     color: #6b7280;
 }
+
+/* ================= Panel Secretaria — Aulas ================= */
+
+.filters-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.filter-group label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.filter-select {
+    padding: 0.45rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    background: white;
+    color: #1f2937;
+    cursor: pointer;
+}
+
+.btn-primary-outline {
+    padding: 0.5rem 0.9rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    background: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.btn-primary-outline:hover {
+    background-color: #f9fafb;
+}
+
+/* Barra de cupo (fracción + mini progress bar) */
+.cupo-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 55px;
+}
+
+.cupo-fraction {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.cupo-bar-track {
+    width: 100%;
+    height: 4px;
+    border-radius: 9999px;
+    background-color: #f3f4f6;
+    overflow: hidden;
+}
+
+.cupo-bar-fill {
+    height: 100%;
+    border-radius: 9999px;
+}
+
+.cupo-bar-fill.fill-green { background-color: #22c55e; }
+.cupo-bar-fill.fill-amber { background-color: #d97706; }
+.cupo-bar-fill.fill-red { background-color: #dc2626; }
+.cupo-bar-fill.fill-gray { background-color: #d1d5db; }
+
+/* Badges de estado de aula */
+.estado-badge {
+    padding: 0.2rem 0.65rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+    display: inline-block;
+    text-align: center;
+}
+
+.estado-disponible { background-color: #dcfce7; color: #15803d; }
+.estado-casi { background-color: #fef3c7; color: #b45309; }
+.estado-llena { background-color: #fee2e2; color: #b91c1c; }
+.estado-eliminada { background-color: #f3f4f6; color: #9ca3af; }
+
+.eye-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.2rem;
+}
+
+.eye-btn:hover {
+    color: #1f2937;
+}
+
+/* Fila seleccionada de aula (resaltado en rojo, distinto al azul de usuarios) */
+.selected-row-aula {
+    background-color: #fef2f2 !important;
+    border-left: 3px solid #ef4444;
+}
+
+.selected-row-aula td:first-child {
+    padding-left: calc(0.75rem - 3px);
+}
+
+/* Panel derecho: detalle de aula */
+.aula-detail-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.aula-detail-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.aula-cupo-badge {
+    padding: 0.15rem 0.55rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.alumnos-mini-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+
+.alumnos-mini-table th {
+    text-align: left;
+    color: #9ca3af;
+    font-weight: 500;
+    font-size: 0.7rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.alumnos-mini-table td {
+    padding: 0.55rem 0.25rem;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: top;
+}
+
+.matric-badge {
+    padding: 0.1rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.matric-activa { background-color: #dcfce7; color: #15803d; }
+.matric-pendiente { background-color: #fef3c7; color: #b45309; }
+.matric-trasladada { background-color: #f3f4f6; color: #9ca3af; }
+
+.aud-text {
+    color: #9ca3af;
+    font-size: 0.75rem;
+}
+
+.footer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0.85rem 0 1.25rem 0;
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.ver-todos-btn {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    background: white;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.ver-todos-btn:hover {
+    background-color: #f9fafb;
+}
+
+.trazabilidad-box {
+    border-top: 1px solid #e5e7eb;
+    padding-top: 1rem;
+}
+
+.trazabilidad-title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin: 0 0 0.75rem 0;
+}
+
+.trazabilidad-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.historico-btn {
+    padding: 0.45rem 0.8rem;
+    border: none;
+    border-radius: 0.375rem;
+    background-color: #1f2937;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.historico-btn:hover {
+    background-color: #111827;
+}
+
+.empty-aula-detail {
+    text-align: center;
+    color: #6b7280;
+    font-size: 0.85rem;
+    padding: 2rem 1rem;
+    border: 1px dashed #e5e7eb;
+    border-radius: 0.5rem;
+}
