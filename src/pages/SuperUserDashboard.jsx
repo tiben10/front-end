@@ -13,6 +13,15 @@ const SuperUserDashboard = () => {
     // --- Trazabilidad / Auditoría: registro automático de acciones (solo en memoria) ---
     const [auditLog, setAuditLog] = useState([]);
 
+    // --- Parámetros del sistema (clave-valor, editable) ---
+    const [parametros, setParametros] = useState([
+        { id: 1, nombre: 'Máximo de vacantes por aula', valor: '30' },
+        { id: 2, nombre: 'Mínimo de caracteres para contraseña', valor: '8' },
+        { id: 3, nombre: 'Expiración de sesión (minutos)', valor: '30' }
+    ]);
+    const [editingParamId, setEditingParamId] = useState(null);
+    const [editingParamValue, setEditingParamValue] = useState('');
+
     // --- Permisos por ROL (Permisos tab): idRol/nombreRol -> { idFuncionalidad: {...} } ---
     const [permissionsByRole, setPermissionsByRole] = useState({});
     const [selectedRoleForPerms, setSelectedRoleForPerms] = useState('DIRECTOR');
@@ -192,6 +201,26 @@ const SuperUserDashboard = () => {
             },
             ...prev
         ]);
+    };
+
+    // Abre el modo edición para un parámetro específico
+    const startEditParam = (param) => {
+        setEditingParamId(param.id);
+        setEditingParamValue(param.valor);
+    };
+
+    // Guarda el nuevo valor del parámetro en memoria y lo registra en Trazabilidad
+    const saveParam = (param) => {
+        const valorLimpio = editingParamValue.trim();
+        if (!valorLimpio) return;
+
+        setParametros(prev => prev.map(p =>
+            p.id === param.id ? { ...p, valor: valorLimpio } : p
+        ));
+        logAction('Editar', 'Parámetros', `Cambió "${param.nombre}" de "${param.valor}" a "${valorLimpio}"`);
+
+        setEditingParamId(null);
+        setEditingParamValue('');
     };
 
     // Cambia mi propia clave (Superusuario). Solo valida en memoria, no llama a ningún backend.
@@ -560,6 +589,57 @@ const SuperUserDashboard = () => {
 
                             <div className="table-footer-note">
                                 ⓘ Este historial es solo de consulta, no se puede editar ni eliminar.
+                            </div>
+                        </main>
+                    ) : activeTab === 'parametros' ? (
+                        <main className="dash-content" style={{ flex: 1 }}>
+                            <h3 className="section-title">Parámetros del sistema</h3>
+                            <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                                Valores de configuración usados en las validaciones del sistema (ej. vacantes máximas en Matrícula).
+                            </p>
+
+                            <table className="users-table">
+                                <thead>
+                                    <tr>
+                                        <th>Parámetro</th>
+                                        <th>Valor</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {parametros.map(param => (
+                                        <tr key={param.id}>
+                                            <td>{param.nombre}</td>
+                                            <td>
+                                                {editingParamId === param.id ? (
+                                                    <input
+                                                        type="text"
+                                                        value={editingParamValue}
+                                                        onChange={(e) => setEditingParamValue(e.target.value)}
+                                                        style={{ padding: '0.3rem 0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', width: '100px' }}
+                                                        autoFocus
+                                                    />
+                                                ) : (
+                                                    param.valor
+                                                )}
+                                            </td>
+                                            <td className="action-cell">
+                                                {editingParamId === param.id ? (
+                                                    <>
+                                                        <button className="icon-btn" title="Guardar" onClick={() => saveParam(param)}>✓</button>{' '}
+                                                        <button className="icon-btn" title="Cancelar" onClick={() => setEditingParamId(null)}>✕</button>
+                                                    </>
+                                                ) : (
+                                                    <button className="icon-btn" title="Editar" onClick={() => startEditParam(param)}>✏️</button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+
+                            <div className="table-footer-note">
+                                ⓘ Los cambios de parámetros quedan registrados en Trazabilidad.
                             </div>
                         </main>
                     ) : (
