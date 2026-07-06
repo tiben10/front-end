@@ -17,36 +17,10 @@ const ProfileCard = ({ profile }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
 
-    const handleLogin = async () => {
-        // 2. Usamos los estados actuales
-        const loginData = {
-            username: username,
-            password: password
-        };
-
-        try {
-            const response = await fetch('http://localhost:8081/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(loginData)
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                localStorage.setItem('token', data.token);
-                
-                // Redirección condicional: solo si es Superusuario
-                if (profile.initials === 'SU') {
-                    navigate('/dashboard');
-                } else {
-                    alert("Login exitoso, pero el dashboard es solo para Superusuario por ahora.");
-                }
-            } else {
-                alert("Usuario o contraseña incorrectos");
-            }
-        } catch (error) {
-            console.error("Error de conexión:", error);
-        }
+    const handleLogin = () => {
+        localStorage.setItem('token', 'fake-token-' + profile.initials);
+        localStorage.setItem('role', profile.initials);
+        navigate('/dashboard');
     };
 
     return (
