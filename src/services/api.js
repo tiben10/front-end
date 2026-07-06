@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 //ngrok temporalS
-const baseURL = import.meta.env.VITE_API_URL
+const baseURL = import.meta.env.VITE_API_URL;
 // Creamos una instancia base de Axios
 const api = axios.create({
     baseURL: baseURL,
