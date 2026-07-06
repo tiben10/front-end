@@ -1,18 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../Styles/Dashboard.css'
 import PermissionTree from './PermissionTree'; // <-- Importamos el componente del árbol
 
 const SuperUserDashboard = () => {
     const [usuarios, setUsuarios] = useState([]);
     const [allFuncs, setAllFuncs] = useState([]); // <-- Nuevo estado para las funcionalidades
-    // Simulación en memoria: permisos guardados POR USUARIO (idUsuario -> { idFuncionalidad: {...} })
-    // No se persiste en ningún lado; al recargar la página se reinicia.
-    const [permissionsByUser, setPermissionsByUser] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selectedUser, setSelectedUser] = useState(null);
     const [activeTab, setActiveTab] = useState('usuarios');
-    const [savedMessage, setSavedMessage] = useState(false);
+
+    // --- Permisos por ROL (Permisos tab): idRol/nombreRol -> { idFuncionalidad: {...} } ---
+    const [permissionsByRole, setPermissionsByRole] = useState({});
+    const [selectedRoleForPerms, setSelectedRoleForPerms] = useState('DIRECTOR');
+    const [roleSavedMessage, setRoleSavedMessage] = useState(false);
 
     // --- Cambiar mi propia clave (Superusuario) ---
     const [ownCurrentPass, setOwnCurrentPass] = useState('');
@@ -63,48 +64,38 @@ const SuperUserDashboard = () => {
         setLoading(false);
     }, []);
 
-    // Genera el mapa de permisos "por defecto" según el rol (solo se usa la primera vez que se ve a ese usuario)
-    const buildDefaultPermMap = useCallback((user) => {
-        const permMap = {};
-        allFuncs.forEach(func => {
-            permMap[func.idFuncionalidad] = {
-                ver: user.rol.idRol === 1, // Superusuario arranca con todo habilitado
-                crear: false,
-                editar: false,
-                eliminar: false,
-                imprimir: false
-            };
+    // Inicializa el mapa de permisos por Rol (Director/Secretaria) una sola vez, todo en false por defecto
+    useEffect(() => {
+        if (allFuncs.length === 0) return;
+        setPermissionsByRole(prev => {
+            const roles = ['DIRECTOR', 'SECRETARIA'];
+            const faltantes = roles.filter(r => !prev[r]);
+            if (faltantes.length === 0) return prev;
+
+            const next = { ...prev };
+            faltantes.forEach(rol => {
+                const map = {};
+                allFuncs.forEach(func => {
+                    map[func.idFuncionalidad] = { ver: false, crear: false, editar: false, eliminar: false, imprimir: false };
+                });
+                next[rol] = map;
+            });
+            return next;
         });
-        return permMap;
     }, [allFuncs]);
 
-    // Al seleccionar un usuario: si es la primera vez, se le crea su mapa de permisos por defecto.
-    // Si ya lo habíamos tocado antes en esta sesión, se respeta lo que ya estaba marcado.
-    useEffect(() => {
-        if (selectedUser && allFuncs.length > 0) {
-            setPermissionsByUser(prev => {
-                if (prev[selectedUser.idUsuario]) return prev; // ya existe, no lo pisamos
-                return {
-                    ...prev,
-                    [selectedUser.idUsuario]: buildDefaultPermMap(selectedUser)
-                };
-            });
-        }
-    }, [selectedUser, allFuncs, buildDefaultPermMap]);
+    // Permisos del rol actualmente seleccionado en la pestaña "Permisos" (atajo de lectura)
+    const rolePermissions = permissionsByRole[selectedRoleForPerms] || {};
 
-    // Permisos del usuario actualmente seleccionado (atajo de lectura)
-    const permissions = selectedUser ? (permissionsByUser[selectedUser.idUsuario] || {}) : {};
-
-    // Función que se ejecuta cada vez que haces clic en un checkbox (solo afecta al usuario seleccionado)
-    const handleToggle = (funcId, action = 'ver') => {
-        if (!selectedUser) return;
-        setPermissionsByUser(prev => {
-            const userPerms = prev[selectedUser.idUsuario] || {};
-            const currentFuncPerms = userPerms[funcId] || { ver: false, crear: false, editar: false, eliminar: false, imprimir: false };
+    // Toggle de un permiso para el ROL seleccionado (afecta a TODOS los usuarios de ese rol)
+    const handleToggleRole = (funcId, action = 'ver') => {
+        setPermissionsByRole(prev => {
+            const rolePerms = prev[selectedRoleForPerms] || {};
+            const currentFuncPerms = rolePerms[funcId] || { ver: false, crear: false, editar: false, eliminar: false, imprimir: false };
             return {
                 ...prev,
-                [selectedUser.idUsuario]: {
-                    ...userPerms,
+                [selectedRoleForPerms]: {
+                    ...rolePerms,
                     [funcId]: {
                         ...currentFuncPerms,
                         [action]: !currentFuncPerms[action]
@@ -114,10 +105,10 @@ const SuperUserDashboard = () => {
         });
     };
 
-    // Solo simula el guardado: no llama a ninguna API ni almacena nada fuera de este estado en memoria.
-    const applyPermissions = () => {
-        setSavedMessage(true);
-        setTimeout(() => setSavedMessage(false), 2000);
+    // Solo simula el guardado de permisos por rol: no llama a ninguna API.
+    const applyRolePermissions = () => {
+        setRoleSavedMessage(true);
+        setTimeout(() => setRoleSavedMessage(false), 2000);
     };
 
     // Crea un usuario nuevo SOLO en memoria (no llama a ninguna API, no persiste al recargar)
@@ -285,165 +276,155 @@ const SuperUserDashboard = () => {
                     </aside>
 
                     {activeTab === 'usuarios' ? (
-                        <>
-                            <main className="dash-content">
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                    <h3 className="section-title" style={{ margin: 0 }}>Listado de usuarios</h3>
-                                    <button className="apply-btn" style={{ width: 'auto', padding: '0.4rem 0.9rem' }} onClick={() => setShowCreateForm(v => !v)}>
-                                        {showCreateForm ? 'Cancelar' : '+ Crear usuario'}
+                        <main className="dash-content" style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <h3 className="section-title" style={{ margin: 0 }}>Listado de usuarios</h3>
+                                <button className="apply-btn" style={{ width: 'auto', padding: '0.4rem 0.9rem' }} onClick={() => setShowCreateForm(v => !v)}>
+                                    {showCreateForm ? 'Cancelar' : '+ Crear usuario'}
+                                </button>
+                            </div>
+
+                            {showCreateForm && (
+                                <form onSubmit={crearUsuario} className="perm-box" style={{ marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                                    <input
+                                        type="text"
+                                        placeholder="Nombre de usuario"
+                                        value={newUsuario}
+                                        onChange={(e) => setNewUsuario(e.target.value)}
+                                        required
+                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Número de documento (opcional)"
+                                        value={newDoc}
+                                        onChange={(e) => setNewDoc(e.target.value)}
+                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                    />
+                                    <select
+                                        value={newRolId}
+                                        onChange={(e) => setNewRolId(e.target.value)}
+                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                    >
+                                        {rolesDisponibles.map(r => (
+                                            <option key={r.idRol} value={r.idRol}>{r.nombreRol}</option>
+                                        ))}
+                                    </select>
+                                    <button type="submit" className="apply-btn" style={{ background: '#2563eb', color: 'white', border: 'none' }}>
+                                        ✓ Crear usuario
                                     </button>
-                                </div>
+                                </form>
+                            )}
 
-                                {showCreateForm && (
-                                    <form onSubmit={crearUsuario} className="perm-box" style={{ marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                                        <input
-                                            type="text"
-                                            placeholder="Nombre de usuario"
-                                            value={newUsuario}
-                                            onChange={(e) => setNewUsuario(e.target.value)}
-                                            required
-                                            style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-                                        />
-                                        <input
-                                            type="text"
-                                            placeholder="Número de documento (opcional)"
-                                            value={newDoc}
-                                            onChange={(e) => setNewDoc(e.target.value)}
-                                            style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-                                        />
-                                        <select
-                                            value={newRolId}
-                                            onChange={(e) => setNewRolId(e.target.value)}
-                                            style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-                                        >
-                                            {rolesDisponibles.map(r => (
-                                                <option key={r.idRol} value={r.idRol}>{r.nombreRol}</option>
-                                            ))}
-                                        </select>
-                                        <button type="submit" className="apply-btn" style={{ background: '#2563eb', color: 'white', border: 'none' }}>
-                                            ✓ Crear usuario
-                                        </button>
-                                    </form>
+                            {loading ? (
+                                <p>Cargando usuarios desde la base de datos...</p>
+                            ) : error ? (
+                                <p style={{ color: 'red' }}>{error}</p>
+                            ) : (
+                                <table className="users-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Nombre</th>
+                                            <th>Doc</th>
+                                            <th>Rol</th>
+                                            <th>Estado</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {usuarios.map((user) => {
+                                            const isDeleted = !user.estado;
+                                            const isSuperUser = user.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO';
+
+                                            return (
+                                                <tr
+                                                    key={user.idUsuario}
+                                                    className={`${isDeleted ? "deleted-row" : ""}`}
+                                                >
+                                                    <td>{user.usuario}</td>
+                                                    <td className="doc-text">{user.doc || '—'}</td>
+                                                    <td>
+                                                        <span className={`role-badge ${getRoleBadgeClass(user.rol?.nombreRol)} ${isDeleted ? 'role-se-del' : ''}`}>
+                                                            {user.rol?.nombreRol?.toLowerCase()}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        {isDeleted ? (
+                                                            <span className="status-badge status-deleted">eliminado</span>
+                                                        ) : (
+                                                            <span className="status-badge status-active">activo</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="action-cell">
+                                                        {isSuperUser ? "bloqueado" : isDeleted ? "lógico" : (
+                                                            <button
+                                                                className="icon-btn"
+                                                                title="Eliminar lógicamente"
+                                                                onClick={() => {
+                                                                    if (window.confirm(`¿Eliminar (lógicamente) al usuario "${user.usuario}"?`)) {
+                                                                        eliminarUsuario(user);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                ⊘
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            )}
+
+                            <div className="table-footer-note">
+                                ⓘ La eliminación es lógica (trazabilidad). Los permisos de acceso ahora se gestionan por rol en la pestaña "Permisos".
+                            </div>
+                        </main>
+                    ) : activeTab === 'permisos' ? (
+                        <main className="dash-content" style={{ flex: 1 }}>
+                            <h3 className="section-title">Permisos por Rol</h3>
+                            <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                                Los permisos se asignan por Rol: afectan a todos los usuarios que tengan ese rol.
+                            </p>
+
+                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                                {['DIRECTOR', 'SECRETARIA'].map(rol => (
+                                    <button
+                                        key={rol}
+                                        onClick={() => setSelectedRoleForPerms(rol)}
+                                        className={`role-badge ${getRoleBadgeClass(rol)}`}
+                                        style={{
+                                            cursor: 'pointer',
+                                            border: selectedRoleForPerms === rol ? '2px solid #1f2937' : '2px solid transparent',
+                                            fontWeight: 600
+                                        }}
+                                    >
+                                        {rol.charAt(0) + rol.slice(1).toLowerCase()}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="perm-box">
+                                <p className="perm-subtitle">Módulos habilitados para {selectedRoleForPerms.charAt(0) + selectedRoleForPerms.slice(1).toLowerCase()}</p>
+
+                                <PermissionTree
+                                    functionalities={allFuncs}
+                                    permissions={rolePermissions}
+                                    onToggle={handleToggleRole}
+                                />
+
+                                <button className="apply-btn" onClick={applyRolePermissions}>
+                                    ✓ Aplicar cambios
+                                </button>
+
+                                {roleSavedMessage && (
+                                    <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#16a34a', fontWeight: 600 }}>
+                                        ✓ Permisos actualizados para el rol {selectedRoleForPerms.toLowerCase()}
+                                    </p>
                                 )}
-
-                                {loading ? (
-                                    <p>Cargando usuarios desde la base de datos...</p>
-                                ) : error ? (
-                                    <p style={{ color: 'red' }}>{error}</p>
-                                ) : (
-                                    <table className="users-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Nombre</th>
-                                                <th>Doc</th>
-                                                <th>Rol</th>
-                                                <th>Estado</th>
-                                                <th></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {usuarios.map((user) => {
-                                                const isDeleted = !user.estado;
-                                                const isSuperUser = user.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO';
-                                                const isSelected = selectedUser?.idUsuario === user.idUsuario;
-
-                                                return (
-                                                    <tr
-                                                        key={user.idUsuario}
-                                                        className={`clickable-row ${isDeleted ? "deleted-row" : ""} ${isSelected ? "selected-row" : ""}`}
-                                                        onClick={() => setSelectedUser(user)}
-                                                    >
-                                                        <td>{user.usuario}</td>
-                                                        <td className="doc-text">{user.doc || '—'}</td>
-                                                        <td>
-                                                            <span className={`role-badge ${getRoleBadgeClass(user.rol?.nombreRol)} ${isDeleted ? 'role-se-del' : ''}`}>
-                                                                {user.rol?.nombreRol?.toLowerCase()}
-                                                            </span>
-                                                        </td>
-                                                        <td>
-                                                            {isDeleted ? (
-                                                                <span className="status-badge status-deleted">eliminado</span>
-                                                            ) : (
-                                                                <span className="status-badge status-active">activo</span>
-                                                            )}
-                                                        </td>
-                                                        <td className="action-cell">
-                                                            {isSuperUser ? "bloqueado" : isDeleted ? "lógico" : (
-                                                                <button
-                                                                    className="icon-btn"
-                                                                    title="Eliminar lógicamente"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        if (window.confirm(`¿Eliminar (lógicamente) al usuario "${user.usuario}"?`)) {
-                                                                            eliminarUsuario(user);
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    ⊘
-                                                                </button>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                )}
-
-                                <div className="table-footer-note">
-                                    ⓘ La eliminación es lógica (trazabilidad)
-                                </div>
-                            </main>
-
-                            <aside className="dash-permissions">
-                                {!selectedUser ? (
-                                    <div className="perm-box" style={{ marginTop: '2rem', textAlign: 'center', borderStyle: 'dashed' }}>
-                                        <p className="perm-subtitle" style={{ margin: 0 }}>👈 Selecciona un usuario en la tabla para ver y editar sus permisos.</p>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className="perm-header">
-                                            <h3 className="section-title" style={{ marginBottom: 0 }}>
-                                                Permisos — {selectedUser.usuario}
-                                            </h3>
-                                            <span className={`role-badge ${getRoleBadgeClass(selectedUser.rol?.nombreRol)}`}>
-                                                {selectedUser.rol?.nombreRol?.toLowerCase()}
-                                            </span>
-                                        </div>
-
-                                        <div className="perm-box">
-                                            <p className="perm-subtitle">Módulos habilitados</p>
-
-                                            {selectedUser.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO' ? (
-                                                <p style={{ fontSize: '0.8rem', color: '#6b7280', fontStyle: 'italic' }}>
-                                                    El Superusuario tiene acceso total y no puede modificarse.
-                                                </p>
-                                            ) : (
-                                                <PermissionTree
-                                                    functionalities={allFuncs}
-                                                    permissions={permissions}
-                                                    onToggle={handleToggle}
-                                                />
-                                            )}
-
-                                            <button
-                                                className="apply-btn"
-                                                onClick={applyPermissions}
-                                                disabled={selectedUser.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO'}
-                                            >
-                                                ✓ Aplicar cambios
-                                            </button>
-
-                                            {savedMessage && (
-                                                <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#16a34a', fontWeight: 600 }}>
-                                                    ✓ Permisos actualizados para {selectedUser.usuario}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </>
-                                )}
-                            </aside>
-                        </>
+                            </div>
+                        </main>
                     ) : activeTab === 'clave' ? (
                         <main className="dash-content">
                             <h3 className="section-title">Cambiar Clave</h3>
