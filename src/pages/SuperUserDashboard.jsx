@@ -10,6 +10,9 @@ const SuperUserDashboard = () => {
     const [selectedUser, setSelectedUser] = useState(null);
     const [activeTab, setActiveTab] = useState('usuarios');
 
+    // --- Trazabilidad / Auditoría: registro automático de acciones (solo en memoria) ---
+    const [auditLog, setAuditLog] = useState([]);
+
     // --- Permisos por ROL (Permisos tab): idRol/nombreRol -> { idFuncionalidad: {...} } ---
     const [permissionsByRole, setPermissionsByRole] = useState({});
     const [selectedRoleForPerms, setSelectedRoleForPerms] = useState('DIRECTOR');
@@ -109,6 +112,7 @@ const SuperUserDashboard = () => {
     const applyRolePermissions = () => {
         setRoleSavedMessage(true);
         setTimeout(() => setRoleSavedMessage(false), 2000);
+        logAction('Editar', 'Permisos', `Actualizó los permisos del rol ${selectedRoleForPerms.toLowerCase()}`);
     };
 
     // Crea un usuario nuevo SOLO en memoria (no llama a ninguna API, no persiste al recargar)
@@ -141,6 +145,7 @@ const SuperUserDashboard = () => {
         };
 
         setUsuarios(prev => [...prev, nuevoUsuario]);
+        logAction('Crear', 'Usuarios', `Creó al usuario "${usuarioLimpio}" con rol ${rolSeleccionado.nombreRol.toLowerCase()}`);
 
         // Reset del formulario
         setNewUsuario('');
@@ -157,6 +162,7 @@ const SuperUserDashboard = () => {
         setUsuarios(prev => prev.map(u =>
             u.idUsuario === user.idUsuario ? { ...u, estado: false } : u
         ));
+        logAction('Eliminar', 'Usuarios', `Eliminó (lógicamente) al usuario "${user.usuario}"`);
 
         // Si el usuario eliminado estaba seleccionado, quitamos la selección
         if (selectedUser?.idUsuario === user.idUsuario) {
@@ -171,6 +177,21 @@ const SuperUserDashboard = () => {
             case 'SECRETARIA': return 'role-se';
             default: return 'role-se';
         }
+    };
+
+    // Agrega un registro al historial de trazabilidad (solo en memoria, el más reciente primero)
+    const logAction = (accion, modulo, detalle) => {
+        setAuditLog(prev => [
+            {
+                id: prev.length + 1,
+                usuario: 'admin',
+                fecha: new Date().toLocaleString('es-PE'),
+                accion,
+                modulo,
+                detalle
+            },
+            ...prev
+        ]);
     };
 
     // Cambia mi propia clave (Superusuario). Solo valida en memoria, no llama a ningún backend.
@@ -197,6 +218,7 @@ const SuperUserDashboard = () => {
         setOwnNewPass('');
         setOwnConfirmPass('');
         setTimeout(() => setOwnPassSuccess(false), 2500);
+        logAction('Editar', 'Cambiar Clave', 'Cambió su propia contraseña (Superusuario)');
     };
 
     // Resetea la clave de otro usuario seleccionado en el combo. Solo simulado en memoria.
@@ -217,6 +239,9 @@ const SuperUserDashboard = () => {
         setTargetPassSuccess(true);
         setTargetNewPass('');
         setTimeout(() => setTargetPassSuccess(false), 2500);
+
+        const targetUser = usuarios.find(u => u.idUsuario === Number(targetUserId));
+        logAction('Editar', 'Cambiar Clave', `Restableció la contraseña del usuario "${targetUser?.usuario || targetUserId}"`);
     };
 
     return (
@@ -497,6 +522,44 @@ const SuperUserDashboard = () => {
                                         <p style={{ color: '#16a34a', fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>✓ Clave restablecida correctamente.</p>
                                     )}
                                 </form>
+                            </div>
+                        </main>
+                    ) : activeTab === 'trazabilidad' ? (
+                        <main className="dash-content" style={{ flex: 1 }}>
+                            <h3 className="section-title">Trazabilidad</h3>
+                            <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                                Registro de solo lectura: quién hizo qué acción y cuándo. Se genera automáticamente con lo que hagas en el panel.
+                            </p>
+
+                            {auditLog.length === 0 ? (
+                                <p style={{ fontStyle: 'italic', color: '#6b7280' }}>Aún no hay acciones registradas en esta sesión.</p>
+                            ) : (
+                                <table className="users-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Usuario</th>
+                                            <th>Fecha</th>
+                                            <th>Acción</th>
+                                            <th>Módulo</th>
+                                            <th>Detalle</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {auditLog.map(entry => (
+                                            <tr key={entry.id}>
+                                                <td>{entry.usuario}</td>
+                                                <td className="doc-text">{entry.fecha}</td>
+                                                <td>{entry.accion}</td>
+                                                <td>{entry.modulo}</td>
+                                                <td style={{ fontSize: '0.85rem' }}>{entry.detalle}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+
+                            <div className="table-footer-note">
+                                ⓘ Este historial es solo de consulta, no se puede editar ni eliminar.
                             </div>
                         </main>
                     ) : (
