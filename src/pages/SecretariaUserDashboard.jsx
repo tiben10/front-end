@@ -89,6 +89,19 @@ const matriculaBadgeClass = (estado) => {
     }
 };
 
+// --- Conceptos / Tarifario (mock, solo en memoria, por año) ---
+const mockConceptosPorAnio = {
+    '2026': [
+        { id: 1, nombre: 'Matrícula', tipo: 'Fijo', monto: 200, orden: 1, obligatorio: true },
+        { id: 2, nombre: 'Libro', tipo: 'Fijo', monto: 50, orden: 2, obligatorio: true },
+        { id: 3, nombre: 'Marzo', tipo: 'Mensual', monto: 100, orden: 3, obligatorio: true },
+        { id: 4, nombre: 'Abril', tipo: 'Mensual', monto: 100, orden: 4, obligatorio: true },
+        { id: 5, nombre: 'Taller extra', tipo: 'Opcional', monto: 30, orden: 5, obligatorio: false }
+    ]
+};
+
+const tiposConcepto = ['Fijo', 'Mensual', 'Opcional'];
+
 const SecretariaUserDashboard = () => {
     const [activeTab, setActiveTab] = useState('aulas');
     const [anioAcademico, setAnioAcademico] = useState('2026');
@@ -96,6 +109,94 @@ const SecretariaUserDashboard = () => {
     // Aula seleccionada por defecto: Secundaria 1° A (id 4), igual que en la maqueta
     const [selectedAulaId, setSelectedAulaId] = useState(4);
     const [anioHistorico, setAnioHistorico] = useState('2026');
+
+    // --- Estado de Conceptos / Tarifario (solo en memoria, por año) ---
+    const [conceptosPorAnio, setConceptosPorAnio] = useState(mockConceptosPorAnio);
+    const [anioConceptos, setAnioConceptos] = useState('2026');
+    const [editingConceptoId, setEditingConceptoId] = useState(null);
+    const [editDraft, setEditDraft] = useState({ nombre: '', tipo: 'Fijo', monto: '', orden: '' });
+    const [showNewConceptoForm, setShowNewConceptoForm] = useState(false);
+    const [newConcepto, setNewConcepto] = useState({ nombre: '', tipo: 'Fijo', monto: '', orden: '', obligatorio: true });
+
+    const conceptosDelAnio = (conceptosPorAnio[anioConceptos] || []).slice().sort((a, b) => a.orden - b.orden);
+    const anioSiguienteConceptos = String(Number(anioConceptos) + 1);
+
+    // Alterna obligatorio sí/no de un concepto con un clic sobre el badge (solo en memoria)
+    const toggleObligatorio = (conceptoId) => {
+        setConceptosPorAnio(prev => ({
+            ...prev,
+            [anioConceptos]: (prev[anioConceptos] || []).map(c =>
+                c.id === conceptoId ? { ...c, obligatorio: !c.obligatorio } : c
+            )
+        }));
+    };
+
+    // Abre el modo edición de un concepto (nombre, tipo, monto, orden)
+    const startEditConcepto = (concepto) => {
+        setEditingConceptoId(concepto.id);
+        setEditDraft({
+            nombre: concepto.nombre,
+            tipo: concepto.tipo,
+            monto: String(concepto.monto),
+            orden: String(concepto.orden)
+        });
+    };
+
+    const cancelEditConcepto = () => {
+        setEditingConceptoId(null);
+        setEditDraft({ nombre: '', tipo: 'Fijo', monto: '', orden: '' });
+    };
+
+    // Guarda los cambios del concepto en edición (solo en memoria, no llama a ninguna API)
+    const saveConcepto = (conceptoId) => {
+        if (!editDraft.nombre.trim() || !editDraft.monto || !editDraft.orden) return;
+
+        setConceptosPorAnio(prev => ({
+            ...prev,
+            [anioConceptos]: (prev[anioConceptos] || []).map(c =>
+                c.id === conceptoId
+                    ? { ...c, nombre: editDraft.nombre.trim(), tipo: editDraft.tipo, monto: Number(editDraft.monto), orden: Number(editDraft.orden) }
+                    : c
+            )
+        }));
+        cancelEditConcepto();
+    };
+
+    // Crea un concepto nuevo SOLO en memoria para el año seleccionado
+    const crearConcepto = (e) => {
+        e.preventDefault();
+        if (!newConcepto.nombre.trim() || !newConcepto.monto || !newConcepto.orden) return;
+
+        const listaActual = conceptosPorAnio[anioConceptos] || [];
+        const nuevoId = listaActual.length > 0 ? Math.max(...listaActual.map(c => c.id)) + 1 : 1;
+
+        const conceptoNuevo = {
+            id: nuevoId,
+            nombre: newConcepto.nombre.trim(),
+            tipo: newConcepto.tipo,
+            monto: Number(newConcepto.monto),
+            orden: Number(newConcepto.orden),
+            obligatorio: newConcepto.obligatorio
+        };
+
+        setConceptosPorAnio(prev => ({
+            ...prev,
+            [anioConceptos]: [...listaActual, conceptoNuevo]
+        }));
+
+        setNewConcepto({ nombre: '', tipo: 'Fijo', monto: '', orden: '', obligatorio: true });
+        setShowNewConceptoForm(false);
+    };
+
+    // Clona el tarifario del año actual hacia el año siguiente (solo en memoria) y cambia la vista a ese año
+    const clonarAAnioSiguiente = () => {
+        const listaActual = conceptosPorAnio[anioConceptos] || [];
+        setConceptosPorAnio(prev => ({
+            ...prev,
+            [anioSiguienteConceptos]: listaActual.map(c => ({ ...c }))
+        }));
+        setAnioConceptos(anioSiguienteConceptos);
+    };
 
     const aulasFiltradas = mockAulas.filter(a => nivelFiltro === 'Todos' || a.nivel === nivelFiltro);
     const selectedAula = mockAulas.find(a => a.id === selectedAulaId) || null;
@@ -322,6 +423,159 @@ const SecretariaUserDashboard = () => {
                                 )}
                             </aside>
                         </>
+                    ) : activeTab === 'conceptos' ? (
+                        <main className="dash-content" style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <h3 className="section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <IconConceptos /> Conceptos — año {anioConceptos}
+                                </h3>
+                                <button className="btn-primary-outline" type="button" onClick={clonarAAnioSiguiente}>
+                                    ⤓ Clonar a {anioSiguienteConceptos}
+                                </button>
+                            </div>
+
+                            <table className="users-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Concepto</th>
+                                        <th>Tipo</th>
+                                        <th>Monto</th>
+                                        <th>Orden cobro</th>
+                                        <th>Obligatorio</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {conceptosDelAnio.map((concepto, index) => {
+                                        const isEditing = editingConceptoId === concepto.id;
+
+                                        return (
+                                            <tr key={concepto.id}>
+                                                <td>{index + 1}</td>
+                                                <td>
+                                                    {isEditing ? (
+                                                        <input
+                                                            type="text"
+                                                            value={editDraft.nombre}
+                                                            onChange={(e) => setEditDraft({ ...editDraft, nombre: e.target.value })}
+                                                            style={{ padding: '0.3rem 0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', width: '120px' }}
+                                                        />
+                                                    ) : concepto.nombre}
+                                                </td>
+                                                <td>
+                                                    {isEditing ? (
+                                                        <select
+                                                            value={editDraft.tipo}
+                                                            onChange={(e) => setEditDraft({ ...editDraft, tipo: e.target.value })}
+                                                            style={{ padding: '0.3rem 0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                                        >
+                                                            {tiposConcepto.map(t => <option key={t} value={t}>{t}</option>)}
+                                                        </select>
+                                                    ) : concepto.tipo}
+                                                </td>
+                                                <td>
+                                                    {isEditing ? (
+                                                        <input
+                                                            type="number"
+                                                            value={editDraft.monto}
+                                                            onChange={(e) => setEditDraft({ ...editDraft, monto: e.target.value })}
+                                                            style={{ padding: '0.3rem 0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', width: '70px' }}
+                                                        />
+                                                    ) : `S/ ${concepto.monto}`}
+                                                </td>
+                                                <td>
+                                                    {isEditing ? (
+                                                        <input
+                                                            type="number"
+                                                            value={editDraft.orden}
+                                                            onChange={(e) => setEditDraft({ ...editDraft, orden: e.target.value })}
+                                                            style={{ padding: '0.3rem 0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', width: '50px' }}
+                                                        />
+                                                    ) : concepto.orden}
+                                                </td>
+                                                <td>
+                                                    <span
+                                                        className={`status-badge ${concepto.obligatorio ? 'status-active' : 'status-deleted'}`}
+                                                        style={{ cursor: 'pointer' }}
+                                                        title="Clic para alternar"
+                                                        onClick={() => toggleObligatorio(concepto.id)}
+                                                    >
+                                                        {concepto.obligatorio ? 'sí' : 'no'}
+                                                    </span>
+                                                </td>
+                                                <td className="action-cell">
+                                                    {isEditing ? (
+                                                        <>
+                                                            <button className="icon-btn" title="Guardar" onClick={() => saveConcepto(concepto.id)}>✓</button>{' '}
+                                                            <button className="icon-btn" title="Cancelar" onClick={cancelEditConcepto}>✕</button>
+                                                        </>
+                                                    ) : (
+                                                        <button className="icon-btn" title="Editar" onClick={() => startEditConcepto(concepto)}>✏️</button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                                <button className="btn-primary-outline" type="button" onClick={() => setShowNewConceptoForm(v => !v)}>
+                                    {showNewConceptoForm ? 'Cancelar' : '+ Nuevo concepto'}
+                                </button>
+                                <span className="table-footer-note" style={{ margin: 0 }}>
+                                    El orden define la secuencia de cobro — no se habilitará una cuota sin pagar la anterior
+                                </span>
+                            </div>
+
+                            {showNewConceptoForm && (
+                                <form onSubmit={crearConcepto} className="perm-box" style={{ marginTop: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.6rem', alignItems: 'center' }}>
+                                    <input
+                                        type="text"
+                                        placeholder="Nombre del concepto"
+                                        value={newConcepto.nombre}
+                                        onChange={(e) => setNewConcepto({ ...newConcepto, nombre: e.target.value })}
+                                        required
+                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                    />
+                                    <select
+                                        value={newConcepto.tipo}
+                                        onChange={(e) => setNewConcepto({ ...newConcepto, tipo: e.target.value })}
+                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                    >
+                                        {tiposConcepto.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
+                                    <input
+                                        type="number"
+                                        placeholder="Monto (S/)"
+                                        value={newConcepto.monto}
+                                        onChange={(e) => setNewConcepto({ ...newConcepto, monto: e.target.value })}
+                                        required
+                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', width: '110px' }}
+                                    />
+                                    <input
+                                        type="number"
+                                        placeholder="Orden"
+                                        value={newConcepto.orden}
+                                        onChange={(e) => setNewConcepto({ ...newConcepto, orden: e.target.value })}
+                                        required
+                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', width: '80px' }}
+                                    />
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.875rem' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={newConcepto.obligatorio}
+                                            onChange={(e) => setNewConcepto({ ...newConcepto, obligatorio: e.target.checked })}
+                                        />
+                                        Obligatorio
+                                    </label>
+                                    <button type="submit" className="apply-btn" style={{ width: 'auto', background: '#2563eb', color: 'white', border: 'none' }}>
+                                        ✓ Guardar concepto
+                                    </button>
+                                </form>
+                            )}
+                        </main>
                     ) : (
                         <main className="dash-content">
                             <h3 className="section-title">Próximamente</h3>
