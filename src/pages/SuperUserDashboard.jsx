@@ -14,13 +14,25 @@ const SuperUserDashboard = () => {
     const [activeTab, setActiveTab] = useState('usuarios');
     const [savedMessage, setSavedMessage] = useState(false);
 
+    // --- Crear usuario (simulado, solo en memoria) ---
+    const [showCreateForm, setShowCreateForm] = useState(false);
+    const [newUsuario, setNewUsuario] = useState('');
+    const [newDoc, setNewDoc] = useState('');
+    const [newRolId, setNewRolId] = useState(3); // por defecto Secretaria
+    const [createError, setCreateError] = useState('');
+
+    const rolesDisponibles = [
+        { idRol: 2, nombreRol: 'DIRECTOR' },
+        { idRol: 3, nombreRol: 'SECRETARIA' }
+    ];
+
     // Carga inicial de Usuarios y Funcionalidades
     useEffect(() => {
         const mockUsuarios = [
-            { idUsuario: 1, usuario: 'admin', estado: true, rol: { idRol: 1, nombreRol: 'SUPERUSUARIO' } },
-            { idUsuario: 2, usuario: 'director1', estado: true, rol: { idRol: 2, nombreRol: 'DIRECTOR' } },
-            { idUsuario: 3, usuario: 'secretaria1', estado: true, rol: { idRol: 3, nombreRol: 'SECRETARIA' } },
-            { idUsuario: 4, usuario: 'secretaria2', estado: false, rol: { idRol: 3, nombreRol: 'SECRETARIA' } }
+            { idUsuario: 1, usuario: 'admin', doc: null, estado: true, rol: { idRol: 1, nombreRol: 'SUPERUSUARIO' } },
+            { idUsuario: 2, usuario: 'Juan Ríos', doc: '47112233', estado: true, rol: { idRol: 2, nombreRol: 'DIRECTOR' } },
+            { idUsuario: 3, usuario: 'María Torres', doc: '52009871', estado: true, rol: { idRol: 3, nombreRol: 'SECRETARIA' } },
+            { idUsuario: 4, usuario: 'Luis Paz', doc: '31007654', estado: false, rol: { idRol: 3, nombreRol: 'SECRETARIA' } }
         ];
 
         const mockFuncs = [
@@ -95,6 +107,59 @@ const SuperUserDashboard = () => {
         setTimeout(() => setSavedMessage(false), 2000);
     };
 
+    // Crea un usuario nuevo SOLO en memoria (no llama a ninguna API, no persiste al recargar)
+    const crearUsuario = (e) => {
+        e.preventDefault();
+        setCreateError('');
+
+        const usuarioLimpio = newUsuario.trim();
+        if (!usuarioLimpio) {
+            setCreateError('El nombre de usuario es obligatorio.');
+            return;
+        }
+
+        // Validación Unique Key: no puede repetirse el nombre de usuario (comparación sin distinguir mayúsculas)
+        const yaExiste = usuarios.some(u => u.usuario.trim().toLowerCase() === usuarioLimpio.toLowerCase());
+        if (yaExiste) {
+            setCreateError(`Ya existe un usuario con el nombre "${usuarioLimpio}".`);
+            return;
+        }
+
+        const rolSeleccionado = rolesDisponibles.find(r => r.idRol === Number(newRolId));
+        const nuevoId = usuarios.length > 0 ? Math.max(...usuarios.map(u => u.idUsuario)) + 1 : 1;
+
+        const nuevoUsuario = {
+            idUsuario: nuevoId,
+            usuario: usuarioLimpio,
+            doc: newDoc.trim() || null,
+            estado: true,
+            rol: rolSeleccionado
+        };
+
+        setUsuarios(prev => [...prev, nuevoUsuario]);
+
+        // Reset del formulario
+        setNewUsuario('');
+        setNewDoc('');
+        setNewRolId(3);
+        setShowCreateForm(false);
+    };
+
+    // Elimina lógicamente a un usuario (solo cambia estado en memoria, no borra el registro ni llama a backend)
+    const eliminarUsuario = (user) => {
+        const esSuperUsuario = user.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO';
+        if (esSuperUsuario || !user.estado) return; // bloqueado o ya eliminado
+
+        setUsuarios(prev => prev.map(u =>
+            u.idUsuario === user.idUsuario ? { ...u, estado: false } : u
+        ));
+
+        // Si el usuario eliminado estaba seleccionado, quitamos la selección
+        if (selectedUser?.idUsuario === user.idUsuario) {
+            setSelectedUser(null);
+        }
+    };
+
     const getRoleBadgeClass = (nombreRol) => {
         switch (nombreRol?.toUpperCase()) {
             case 'SUPERUSUARIO': return 'role-su';
@@ -163,7 +228,44 @@ const SuperUserDashboard = () => {
                     {activeTab === 'usuarios' ? (
                         <>
                             <main className="dash-content">
-                                <h3 className="section-title">Listado de usuarios</h3>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                    <h3 className="section-title" style={{ margin: 0 }}>Listado de usuarios</h3>
+                                    <button className="apply-btn" style={{ width: 'auto', padding: '0.4rem 0.9rem' }} onClick={() => setShowCreateForm(v => !v)}>
+                                        {showCreateForm ? 'Cancelar' : '+ Crear usuario'}
+                                    </button>
+                                </div>
+
+                                {showCreateForm && (
+                                    <form onSubmit={crearUsuario} className="perm-box" style={{ marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Nombre de usuario"
+                                            value={newUsuario}
+                                            onChange={(e) => setNewUsuario(e.target.value)}
+                                            required
+                                            style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder="Número de documento (opcional)"
+                                            value={newDoc}
+                                            onChange={(e) => setNewDoc(e.target.value)}
+                                            style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                        />
+                                        <select
+                                            value={newRolId}
+                                            onChange={(e) => setNewRolId(e.target.value)}
+                                            style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                        >
+                                            {rolesDisponibles.map(r => (
+                                                <option key={r.idRol} value={r.idRol}>{r.nombreRol}</option>
+                                            ))}
+                                        </select>
+                                        <button type="submit" className="apply-btn" style={{ background: '#2563eb', color: 'white', border: 'none' }}>
+                                            ✓ Crear usuario
+                                        </button>
+                                    </form>
+                                )}
 
                                 {loading ? (
                                     <p>Cargando usuarios desde la base de datos...</p>
@@ -193,7 +295,7 @@ const SuperUserDashboard = () => {
                                                         onClick={() => setSelectedUser(user)}
                                                     >
                                                         <td>{user.usuario}</td>
-                                                        <td className="doc-text">—</td>
+                                                        <td className="doc-text">{user.doc || '—'}</td>
                                                         <td>
                                                             <span className={`role-badge ${getRoleBadgeClass(user.rol?.nombreRol)} ${isDeleted ? 'role-se-del' : ''}`}>
                                                                 {user.rol?.nombreRol?.toLowerCase()}
@@ -207,7 +309,20 @@ const SuperUserDashboard = () => {
                                                             )}
                                                         </td>
                                                         <td className="action-cell">
-                                                            {isSuperUser ? "bloqueado" : isDeleted ? "lógico" : <button className="icon-btn" title="Eliminar lógicamente">⊘</button>}
+                                                            {isSuperUser ? "bloqueado" : isDeleted ? "lógico" : (
+                                                                <button
+                                                                    className="icon-btn"
+                                                                    title="Eliminar lógicamente"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (window.confirm(`¿Eliminar (lógicamente) al usuario "${user.usuario}"?`)) {
+                                                                            eliminarUsuario(user);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    ⊘
+                                                                </button>
+                                                            )}
                                                         </td>
                                                     </tr>
                                                 );
