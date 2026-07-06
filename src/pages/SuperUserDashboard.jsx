@@ -27,6 +27,11 @@ const SuperUserDashboard = () => {
     const [selectedRoleForPerms, setSelectedRoleForPerms] = useState('DIRECTOR');
     const [roleSavedMessage, setRoleSavedMessage] = useState(false);
 
+    // --- Permisos por USUARIO (pestaña Usuarios): idUsuario -> { idFuncionalidad: {...} } ---
+    // Se inicializan copiando los permisos del ROL del usuario la primera vez que se selecciona.
+    const [permissionsByUser, setPermissionsByUser] = useState({});
+    const [savedMessage, setSavedMessage] = useState(false);
+
     // --- Cambiar mi propia clave (Superusuario) ---
     const [ownCurrentPass, setOwnCurrentPass] = useState('');
     const [ownNewPass, setOwnNewPass] = useState('');
@@ -122,6 +127,53 @@ const SuperUserDashboard = () => {
         setRoleSavedMessage(true);
         setTimeout(() => setRoleSavedMessage(false), 2000);
         logAction('Editar', 'Permisos', `Actualizó los permisos del rol ${selectedRoleForPerms.toLowerCase()}`);
+    };
+
+    // Al seleccionar un usuario en la pestaña "Usuarios": si es la primera vez, copia los permisos de su ROL como punto de partida.
+    // Si ya se había tocado antes en esta sesión, se respeta lo que quedó marcado para ese usuario.
+    useEffect(() => {
+        if (!selectedUser || allFuncs.length === 0) return;
+        const rolNombre = selectedUser.rol?.nombreRol?.toUpperCase();
+        if (rolNombre === 'SUPERUSUARIO') return;
+
+        setPermissionsByUser(prev => {
+            if (prev[selectedUser.idUsuario]) return prev; // ya existe, no lo pisamos
+            const base = permissionsByRole[rolNombre] || {};
+            const copia = {};
+            allFuncs.forEach(func => {
+                copia[func.idFuncionalidad] = { ...(base[func.idFuncionalidad] || { ver: false, crear: false, editar: false, eliminar: false, imprimir: false }) };
+            });
+            return { ...prev, [selectedUser.idUsuario]: copia };
+        });
+    }, [selectedUser, allFuncs, permissionsByRole]);
+
+    // Permisos del usuario actualmente seleccionado en "Usuarios" (atajo de lectura)
+    const userPermissions = selectedUser ? (permissionsByUser[selectedUser.idUsuario] || {}) : {};
+
+    // Toggle de un permiso para el USUARIO seleccionado (solo afecta a ese usuario, no a todo el rol)
+    const handleToggleUser = (funcId, action = 'ver') => {
+        if (!selectedUser) return;
+        setPermissionsByUser(prev => {
+            const userPerms = prev[selectedUser.idUsuario] || {};
+            const currentFuncPerms = userPerms[funcId] || { ver: false, crear: false, editar: false, eliminar: false, imprimir: false };
+            return {
+                ...prev,
+                [selectedUser.idUsuario]: {
+                    ...userPerms,
+                    [funcId]: {
+                        ...currentFuncPerms,
+                        [action]: !currentFuncPerms[action]
+                    }
+                }
+            };
+        });
+    };
+
+    // Solo simula el guardado de permisos por usuario: no llama a ninguna API.
+    const applyUserPermissions = () => {
+        setSavedMessage(true);
+        setTimeout(() => setSavedMessage(false), 2000);
+        logAction('Editar', 'Permisos', `Actualizó los permisos del usuario "${selectedUser.usuario}"`);
     };
 
     // Crea un usuario nuevo SOLO en memoria (no llama a ninguna API, no persiste al recargar)
@@ -330,111 +382,165 @@ const SuperUserDashboard = () => {
                     </aside>
 
                     {activeTab === 'usuarios' ? (
-                        <main className="dash-content" style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                <h3 className="section-title" style={{ margin: 0 }}>Listado de usuarios</h3>
-                                <button className="apply-btn" style={{ width: 'auto', padding: '0.4rem 0.9rem' }} onClick={() => setShowCreateForm(v => !v)}>
-                                    {showCreateForm ? 'Cancelar' : '+ Crear usuario'}
-                                </button>
-                            </div>
-
-                            {showCreateForm && (
-                                <form onSubmit={crearUsuario} className="perm-box" style={{ marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                                    <input
-                                        type="text"
-                                        placeholder="Nombre de usuario"
-                                        value={newUsuario}
-                                        onChange={(e) => setNewUsuario(e.target.value)}
-                                        required
-                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-                                    />
-                                    <input
-                                        type="text"
-                                        placeholder="Número de documento (opcional)"
-                                        value={newDoc}
-                                        onChange={(e) => setNewDoc(e.target.value)}
-                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-                                    />
-                                    <select
-                                        value={newRolId}
-                                        onChange={(e) => setNewRolId(e.target.value)}
-                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-                                    >
-                                        {rolesDisponibles.map(r => (
-                                            <option key={r.idRol} value={r.idRol}>{r.nombreRol}</option>
-                                        ))}
-                                    </select>
-                                    <button type="submit" className="apply-btn" style={{ background: '#2563eb', color: 'white', border: 'none' }}>
-                                        ✓ Crear usuario
+                        <>
+                            <main className="dash-content" style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                    <h3 className="section-title" style={{ margin: 0 }}>Listado de usuarios</h3>
+                                    <button className="apply-btn" style={{ width: 'auto', padding: '0.4rem 0.9rem' }} onClick={() => setShowCreateForm(v => !v)}>
+                                        {showCreateForm ? 'Cancelar' : '+ Crear usuario'}
                                     </button>
-                                </form>
-                            )}
+                                </div>
 
-                            {loading ? (
-                                <p>Cargando usuarios desde la base de datos...</p>
-                            ) : error ? (
-                                <p style={{ color: 'red' }}>{error}</p>
-                            ) : (
-                                <table className="users-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Nombre</th>
-                                            <th>Doc</th>
-                                            <th>Rol</th>
-                                            <th>Estado</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {usuarios.map((user) => {
-                                            const isDeleted = !user.estado;
-                                            const isSuperUser = user.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO';
+                                {showCreateForm && (
+                                    <form onSubmit={crearUsuario} className="perm-box" style={{ marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Nombre de usuario"
+                                            value={newUsuario}
+                                            onChange={(e) => setNewUsuario(e.target.value)}
+                                            required
+                                            style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder="Número de documento (opcional)"
+                                            value={newDoc}
+                                            onChange={(e) => setNewDoc(e.target.value)}
+                                            style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                        />
+                                        <select
+                                            value={newRolId}
+                                            onChange={(e) => setNewRolId(e.target.value)}
+                                            style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                        >
+                                            {rolesDisponibles.map(r => (
+                                                <option key={r.idRol} value={r.idRol}>{r.nombreRol}</option>
+                                            ))}
+                                        </select>
+                                        <button type="submit" className="apply-btn" style={{ background: '#2563eb', color: 'white', border: 'none' }}>
+                                            ✓ Crear usuario
+                                        </button>
+                                    </form>
+                                )}
 
-                                            return (
-                                                <tr
-                                                    key={user.idUsuario}
-                                                    className={`${isDeleted ? "deleted-row" : ""}`}
-                                                >
-                                                    <td>{user.usuario}</td>
-                                                    <td className="doc-text">{user.doc || '—'}</td>
-                                                    <td>
-                                                        <span className={`role-badge ${getRoleBadgeClass(user.rol?.nombreRol)} ${isDeleted ? 'role-se-del' : ''}`}>
-                                                            {user.rol?.nombreRol?.toLowerCase()}
-                                                        </span>
-                                                    </td>
-                                                    <td>
-                                                        {isDeleted ? (
-                                                            <span className="status-badge status-deleted">eliminado</span>
-                                                        ) : (
-                                                            <span className="status-badge status-active">activo</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="action-cell">
-                                                        {isSuperUser ? "bloqueado" : isDeleted ? "lógico" : (
-                                                            <button
-                                                                className="icon-btn"
-                                                                title="Eliminar lógicamente"
-                                                                onClick={() => {
-                                                                    if (window.confirm(`¿Eliminar (lógicamente) al usuario "${user.usuario}"?`)) {
-                                                                        eliminarUsuario(user);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                ⊘
-                                                            </button>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            )}
+                                {loading ? (
+                                    <p>Cargando usuarios desde la base de datos...</p>
+                                ) : error ? (
+                                    <p style={{ color: 'red' }}>{error}</p>
+                                ) : (
+                                    <table className="users-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Nombre</th>
+                                                <th>Doc</th>
+                                                <th>Rol</th>
+                                                <th>Estado</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {usuarios.map((user) => {
+                                                const isDeleted = !user.estado;
+                                                const isSuperUser = user.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO';
+                                                const isSelected = selectedUser?.idUsuario === user.idUsuario;
 
-                            <div className="table-footer-note">
-                                ⓘ La eliminación es lógica (trazabilidad). Los permisos de acceso ahora se gestionan por rol en la pestaña "Permisos".
-                            </div>
-                        </main>
+                                                return (
+                                                    <tr
+                                                        key={user.idUsuario}
+                                                        className={`clickable-row ${isDeleted ? "deleted-row" : ""} ${isSelected ? "selected-row" : ""}`}
+                                                        onClick={() => setSelectedUser(user)}
+                                                    >
+                                                        <td>{user.usuario}</td>
+                                                        <td className="doc-text">{user.doc || '—'}</td>
+                                                        <td>
+                                                            <span className={`role-badge ${getRoleBadgeClass(user.rol?.nombreRol)} ${isDeleted ? 'role-se-del' : ''}`}>
+                                                                {user.rol?.nombreRol?.toLowerCase()}
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            {isDeleted ? (
+                                                                <span className="status-badge status-deleted">eliminado</span>
+                                                            ) : (
+                                                                <span className="status-badge status-active">activo</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="action-cell">
+                                                            {isSuperUser ? "bloqueado" : isDeleted ? "lógico" : (
+                                                                <button
+                                                                    className="icon-btn"
+                                                                    title="Eliminar lógicamente"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (window.confirm(`¿Eliminar (lógicamente) al usuario "${user.usuario}"?`)) {
+                                                                            eliminarUsuario(user);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    ⊘
+                                                                </button>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                )}
+
+                                <div className="table-footer-note">
+                                    ⓘ La eliminación es lógica (trazabilidad). Para modificar permisos por rol, ve a la pestaña "Permisos".
+                                </div>
+                            </main>
+
+                            <aside className="dash-permissions">
+                                {!selectedUser ? (
+                                    <div className="perm-box" style={{ marginTop: '2rem', textAlign: 'center', borderStyle: 'dashed' }}>
+                                        <p className="perm-subtitle" style={{ margin: 0 }}>👈 Selecciona un usuario en la tabla para ver y editar sus permisos.</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="perm-header">
+                                            <h3 className="section-title" style={{ marginBottom: 0 }}>
+                                                Permisos — {selectedUser.usuario}
+                                            </h3>
+                                            <span className={`role-badge ${getRoleBadgeClass(selectedUser.rol?.nombreRol)}`}>
+                                                {selectedUser.rol?.nombreRol?.toLowerCase()}
+                                            </span>
+                                        </div>
+
+                                        <div className="perm-box">
+                                            <p className="perm-subtitle">Módulos habilitados</p>
+
+                                            {selectedUser.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO' ? (
+                                                <p style={{ fontSize: '0.8rem', color: '#6b7280', fontStyle: 'italic' }}>
+                                                    El Superusuario tiene acceso total y no puede modificarse.
+                                                </p>
+                                            ) : (
+                                                <PermissionTree
+                                                    functionalities={allFuncs}
+                                                    permissions={userPermissions}
+                                                    onToggle={handleToggleUser}
+                                                />
+                                            )}
+
+                                            <button
+                                                className="apply-btn"
+                                                onClick={applyUserPermissions}
+                                                disabled={selectedUser.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO'}
+                                            >
+                                                ✓ Aplicar permisos
+                                            </button>
+
+                                            {savedMessage && (
+                                                <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#16a34a', fontWeight: 600 }}>
+                                                    ✓ Permisos actualizados para {selectedUser.usuario}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </aside>
+                        </>
                     ) : activeTab === 'permisos' ? (
                         <main className="dash-content" style={{ flex: 1 }}>
                             <h3 className="section-title">Permisos por Rol</h3>
