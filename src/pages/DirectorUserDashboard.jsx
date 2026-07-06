@@ -208,4 +208,4 @@ const SuperUserDashboard = () => {
     );
 };
 
-export default SuperUserDashboard;
+export default DirectorUserDashboard;

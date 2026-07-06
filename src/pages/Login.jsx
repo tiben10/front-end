@@ -18,9 +18,12 @@ const ProfileCard = ({ profile }) => {
     const [password, setPassword] = useState('');
 
     const handleLogin = () => {
-        localStorage.setItem('token', 'fake-token-' + profile.initials);
-        localStorage.setItem('role', profile.initials);
-        navigate('/dashboard');
+    // Ya no llama al backend, genera un token falso localmente
+    localStorage.setItem('token', 'fake-token-' + profile.initials);
+    // Guarda qué rol "inició sesión" (SU, DI o SE) por si luego se necesita
+    localStorage.setItem('role', profile.initials);
+    // Redirige siempre al dashboard, sin importar el perfil ni validar nada
+    navigate('/dashboard');
     };
 
     return (

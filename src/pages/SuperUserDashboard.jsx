@@ -9,6 +9,7 @@ const SuperUserDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selectedUser, setSelectedUser] = useState(null);
+    const [activeTab, setActiveTab] = useState('usuarios');
 
     // Carga inicial de Usuarios y Funcionalidades
     useEffect(() => {
@@ -20,9 +21,13 @@ const SuperUserDashboard = () => {
         ];
 
         const mockFuncs = [
-            { idFuncionalidad: 1, nombre: 'Alumnos' },
-            { idFuncionalidad: 2, nombre: 'Matriculas' },
-            { idFuncionalidad: 3, nombre: 'Reportes' }
+            { idFuncionalidad: 1, nombre: 'Matriculas' },
+            { idFuncionalidad: 2, nombre: 'Pagos' },
+            { idFuncionalidad: 3, nombre: 'Alumnos' },
+            { idFuncionalidad: 4, nombre: 'Aulas' },
+            { idFuncionalidad: 5, nombre: 'Conceptos' },
+            { idFuncionalidad: 6, nombre: 'Usuarios' },
+            { idFuncionalidad: 7, nombre: 'Reportes Avanzados' }
         ];
 
         setUsuarios(mockUsuarios);
@@ -58,9 +63,9 @@ const SuperUserDashboard = () => {
             const currentFuncPerms = prev[funcId] || { ver: false, crear: false, editar: false, eliminar: false, imprimir: false };
             return {
                 ...prev,
-                [funcId]: { 
-                    ...currentFuncPerms, 
-                    [action]: !currentFuncPerms[action] 
+                [funcId]: {
+                    ...currentFuncPerms,
+                    [action]: !currentFuncPerms[action]
                 }
             };
         });
@@ -99,109 +104,143 @@ const SuperUserDashboard = () => {
 
                 <div className="dash-body">
                     <aside className="dash-sidebar">
-                        <button className="sidebar-item active">
+                        <button
+                            className={`sidebar-item ${activeTab === 'usuarios' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('usuarios')}
+                        >
                             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                             Usuarios
                         </button>
-                        <button className="sidebar-item">
-                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+                        <button
+                            className={`sidebar-item ${activeTab === 'permisos' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('permisos')}
+                        >
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                             Permisos
+                        </button>
+                        <button
+                            className={`sidebar-item ${activeTab === 'clave' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('clave')}
+                        >
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><circle cx="7.5" cy="15.5" r="5.5"></circle><path d="M21 2l-9.6 9.6"></path><path d="M15.5 7.5l3 3L22 7l-3-3"></path></svg>
+                            Cambiar Clave
+                        </button>
+                        <button
+                            className={`sidebar-item ${activeTab === 'trazabilidad' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('trazabilidad')}
+                        >
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M12 8v4l3 3"></path><path d="M3.05 11a9 9 0 1 1 .5 4"></path><path d="M3 4v5h5"></path></svg>
+                            Trazabilidad
+                        </button>
+                        <button
+                            className={`sidebar-item ${activeTab === 'parametros' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('parametros')}
+                        >
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                            Parámetros
                         </button>
                     </aside>
 
-                    <main className="dash-content">
-                        <h3 className="section-title">Listado de usuarios</h3>
+                    {activeTab === 'usuarios' ? (
+                        <>
+                            <main className="dash-content">
+                                <h3 className="section-title">Listado de usuarios</h3>
 
-                        {loading ? (
-                            <p>Cargando usuarios desde la base de datos...</p>
-                        ) : error ? (
-                            <p style={{ color: 'red' }}>{error}</p>
-                        ) : (
-                            <table className="users-table">
-                                <thead>
-                                    <tr>
-                                        <th>Nombre</th>
-                                        <th>Doc</th>
-                                        <th>Rol</th>
-                                        <th>Estado</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {usuarios.map((user) => {
-                                        const isDeleted = !user.estado;
-                                        const isSuperUser = user.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO';
-                                        const isSelected = selectedUser?.idUsuario === user.idUsuario;
-
-                                        return (
-                                            <tr
-                                                key={user.idUsuario}
-                                                className={`clickable-row ${isDeleted ? "deleted-row" : ""} ${isSelected ? "selected-row" : ""}`}
-                                                onClick={() => setSelectedUser(user)}
-                                            >
-                                                <td>{user.usuario}</td>
-                                                <td className="doc-text">—</td>
-                                                <td>
-                                                    <span className={`role-badge ${getRoleBadgeClass(user.rol?.nombreRol)} ${isDeleted ? 'role-se-del' : ''}`}>
-                                                        {user.rol?.nombreRol?.toLowerCase()}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    {isDeleted ? (
-                                                        <span className="status-badge status-deleted">eliminado</span>
-                                                    ) : (
-                                                        <span className="status-badge status-active">activo</span>
-                                                    )}
-                                                </td>
-                                                <td className="action-cell">
-                                                    {isSuperUser ? "bloqueado" : isDeleted ? "lógico" : <button className="icon-btn" title="Eliminar lógicamente">⊘</button>}
-                                                </td>
+                                {loading ? (
+                                    <p>Cargando usuarios desde la base de datos...</p>
+                                ) : error ? (
+                                    <p style={{ color: 'red' }}>{error}</p>
+                                ) : (
+                                    <table className="users-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Nombre</th>
+                                                <th>Doc</th>
+                                                <th>Rol</th>
+                                                <th>Estado</th>
+                                                <th></th>
                                             </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        )}
+                                        </thead>
+                                        <tbody>
+                                            {usuarios.map((user) => {
+                                                const isDeleted = !user.estado;
+                                                const isSuperUser = user.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO';
+                                                const isSelected = selectedUser?.idUsuario === user.idUsuario;
 
-                        <div className="table-footer-note">
-                            ⓘ La eliminación es lógica (trazabilidad)
-                        </div>
-                    </main>
+                                                return (
+                                                    <tr
+                                                        key={user.idUsuario}
+                                                        className={`clickable-row ${isDeleted ? "deleted-row" : ""} ${isSelected ? "selected-row" : ""}`}
+                                                        onClick={() => setSelectedUser(user)}
+                                                    >
+                                                        <td>{user.usuario}</td>
+                                                        <td className="doc-text">—</td>
+                                                        <td>
+                                                            <span className={`role-badge ${getRoleBadgeClass(user.rol?.nombreRol)} ${isDeleted ? 'role-se-del' : ''}`}>
+                                                                {user.rol?.nombreRol?.toLowerCase()}
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            {isDeleted ? (
+                                                                <span className="status-badge status-deleted">eliminado</span>
+                                                            ) : (
+                                                                <span className="status-badge status-active">activo</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="action-cell">
+                                                            {isSuperUser ? "bloqueado" : isDeleted ? "lógico" : <button className="icon-btn" title="Eliminar lógicamente">⊘</button>}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                )}
 
-                    <aside className="dash-permissions">
-                        {!selectedUser ? (
-                            <div className="perm-box" style={{ marginTop: '2rem', textAlign: 'center', borderStyle: 'dashed' }}>
-                                <p className="perm-subtitle" style={{ margin: 0 }}>👈 Selecciona un usuario en la tabla para ver y editar sus permisos.</p>
-                            </div>
-                        ) : (
-                            <>
-                                <div className="perm-header">
-                                    <h3 className="section-title" style={{ marginBottom: 0 }}>
-                                        Permisos — {selectedUser.usuario}
-                                    </h3>
-                                    <span className={`role-badge ${getRoleBadgeClass(selectedUser.rol?.nombreRol)}`}>
-                                        {selectedUser.rol?.nombreRol?.toLowerCase()}
-                                    </span>
+                                <div className="table-footer-note">
+                                    ⓘ La eliminación es lógica (trazabilidad)
                                 </div>
+                            </main>
 
-                                <div className="perm-box">
-                                    <p className="perm-subtitle">Módulos habilitados</p>
+                            <aside className="dash-permissions">
+                                {!selectedUser ? (
+                                    <div className="perm-box" style={{ marginTop: '2rem', textAlign: 'center', borderStyle: 'dashed' }}>
+                                        <p className="perm-subtitle" style={{ margin: 0 }}>👈 Selecciona un usuario en la tabla para ver y editar sus permisos.</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="perm-header">
+                                            <h3 className="section-title" style={{ marginBottom: 0 }}>
+                                                Permisos — {selectedUser.usuario}
+                                            </h3>
+                                            <span className={`role-badge ${getRoleBadgeClass(selectedUser.rol?.nombreRol)}`}>
+                                                {selectedUser.rol?.nombreRol?.toLowerCase()}
+                                            </span>
+                                        </div>
 
-                                    {/* Componente del Árbol de Permisos */}
-                                    <PermissionTree 
-                                        functionalities={allFuncs} 
-                                        permissions={permissions} 
-                                        onToggle={handleToggle} 
-                                    />
+                                        <div className="perm-box">
+                                            <p className="perm-subtitle">Módulos habilitados</p>
 
-                                    {/* Botón que llama a la función applyPermissions */}
-                                    <button className="apply-btn" onClick={applyPermissions}>
-                                        ✓ Aplicar permisos
-                                    </button>
-                                </div>
-                            </>
-                        )}
-                    </aside>
+                                            <PermissionTree
+                                                functionalities={allFuncs}
+                                                permissions={permissions}
+                                                onToggle={handleToggle}
+                                            />
+
+                                            <button className="apply-btn" onClick={applyPermissions}>
+                                                ✓ Aplicar cambios
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </aside>
+                        </>
+                    ) : (
+                        <main className="dash-content">
+                            <h3 className="section-title">Próximamente</h3>
+                            <p>Esta sección ({activeTab}) se implementará más adelante.</p>
+                        </main>
+                    )}
                 </div>
             </div>
         </div>
