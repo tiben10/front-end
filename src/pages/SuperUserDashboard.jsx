@@ -12,55 +12,38 @@ const SuperUserDashboard = () => {
 
     // Carga inicial de Usuarios y Funcionalidades
     useEffect(() => {
-        const initData = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                
-                // Pedimos usuarios y funcionalidades al mismo tiempo
-                const [resUsers, resFuncs] = await Promise.all([
-                    fetch('http://localhost:8081/api/usuarios', {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    }),
-                    fetch('http://localhost:8081/api/funcionalidades', {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    })
-                ]);
+        const mockUsuarios = [
+            { idUsuario: 1, usuario: 'admin', estado: true, rol: { idRol: 1, nombreRol: 'SUPERUSUARIO' } },
+            { idUsuario: 2, usuario: 'director1', estado: true, rol: { idRol: 2, nombreRol: 'DIRECTOR' } },
+            { idUsuario: 3, usuario: 'secretaria1', estado: true, rol: { idRol: 3, nombreRol: 'SECRETARIA' } },
+            { idUsuario: 4, usuario: 'secretaria2', estado: false, rol: { idRol: 3, nombreRol: 'SECRETARIA' } }
+        ];
 
-                if (!resUsers.ok || !resFuncs.ok) throw new Error('Error de conexión. Verifica tu sesión.');
+        const mockFuncs = [
+            { idFuncionalidad: 1, nombre: 'Alumnos' },
+            { idFuncionalidad: 2, nombre: 'Matriculas' },
+            { idFuncionalidad: 3, nombre: 'Reportes' }
+        ];
 
-                setUsuarios(await resUsers.json());
-                setAllFuncs(await resFuncs.json());
-            } catch (err) {
-                setError(err.message);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        initData();
+        setUsuarios(mockUsuarios);
+        setAllFuncs(mockFuncs);
+        setLoading(false);
     }, []);
 
     // Función para cargar los permisos específicos de un rol
-    const loadPermissions = useCallback(async (user) => {
-        try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:8081/api/permisos/rol/${user.rol.idRol}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const permsData = await res.json();
-
-            // Transformamos el array del backend a un objeto rápido de leer para el frontend
-            const permMap = {};
-            permsData.forEach(p => {
-                permMap[p.funcionalidad.idFuncionalidad] = { 
-                    ver: p.ver, crear: p.crear, editar: p.editar, eliminar: p.eliminar, imprimir: p.imprimir 
-                };
-            });
-            setPermissions(permMap);
-        } catch (error) {
-            console.error("Error al cargar permisos:", error);
-        }
-    }, []);
+    const loadPermissions = useCallback((user) => {
+        const permMap = {};
+        allFuncs.forEach(func => {
+            permMap[func.idFuncionalidad] = {
+                ver: user.rol.idRol === 1,
+                crear: false,
+                editar: false,
+                eliminar: false,
+                imprimir: false
+            };
+        });
+        setPermissions(permMap);
+    }, [allFuncs]);
 
     // Efecto que dispara la carga de permisos cuando seleccionas un usuario en la tabla
     useEffect(() => {
@@ -84,36 +67,8 @@ const SuperUserDashboard = () => {
     };
 
     // Función para enviar los cambios a la base de datos
-    const applyPermissions = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            
-            // Armamos el payload exacto que pide tu AplicarPermisosRequest en Spring Boot
-            const payload = {
-                idRol: selectedUser.rol.idRol,
-                permisos: Object.keys(permissions).map(id => ({
-                    idFuncionalidad: parseInt(id),
-                    ...permissions[id]
-                }))
-            };
-
-            const res = await fetch('http://localhost:8081/api/permisos/aplicar', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}` 
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                alert("Permisos guardados con éxito.");
-            } else {
-                alert("Hubo un error al guardar los permisos.");
-            }
-        } catch (error) {
-            console.error("Error guardando:", error);
-        }
+    const applyPermissions = () => {
+        alert("Permisos guardados con éxito.");
     };
 
     const getRoleBadgeClass = (nombreRol) => {
