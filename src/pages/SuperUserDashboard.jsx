@@ -5,11 +5,14 @@ import PermissionTree from './PermissionTree'; // <-- Importamos el componente d
 const SuperUserDashboard = () => {
     const [usuarios, setUsuarios] = useState([]);
     const [allFuncs, setAllFuncs] = useState([]); // <-- Nuevo estado para las funcionalidades
-    const [permissions, setPermissions] = useState({}); // <-- Nuevo estado para los checkboxes
+    // Simulación en memoria: permisos guardados POR USUARIO (idUsuario -> { idFuncionalidad: {...} })
+    // No se persiste en ningún lado; al recargar la página se reinicia.
+    const [permissionsByUser, setPermissionsByUser] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selectedUser, setSelectedUser] = useState(null);
     const [activeTab, setActiveTab] = useState('usuarios');
+    const [savedMessage, setSavedMessage] = useState(false);
 
     // Carga inicial de Usuarios y Funcionalidades
     useEffect(() => {
@@ -35,45 +38,61 @@ const SuperUserDashboard = () => {
         setLoading(false);
     }, []);
 
-    // Función para cargar los permisos específicos de un rol
-    const loadPermissions = useCallback((user) => {
+    // Genera el mapa de permisos "por defecto" según el rol (solo se usa la primera vez que se ve a ese usuario)
+    const buildDefaultPermMap = useCallback((user) => {
         const permMap = {};
         allFuncs.forEach(func => {
             permMap[func.idFuncionalidad] = {
-                ver: user.rol.idRol === 1,
+                ver: user.rol.idRol === 1, // Superusuario arranca con todo habilitado
                 crear: false,
                 editar: false,
                 eliminar: false,
                 imprimir: false
             };
         });
-        setPermissions(permMap);
+        return permMap;
     }, [allFuncs]);
 
-    // Efecto que dispara la carga de permisos cuando seleccionas un usuario en la tabla
+    // Al seleccionar un usuario: si es la primera vez, se le crea su mapa de permisos por defecto.
+    // Si ya lo habíamos tocado antes en esta sesión, se respeta lo que ya estaba marcado.
     useEffect(() => {
-        if (selectedUser) {
-            loadPermissions(selectedUser);
+        if (selectedUser && allFuncs.length > 0) {
+            setPermissionsByUser(prev => {
+                if (prev[selectedUser.idUsuario]) return prev; // ya existe, no lo pisamos
+                return {
+                    ...prev,
+                    [selectedUser.idUsuario]: buildDefaultPermMap(selectedUser)
+                };
+            });
         }
-    }, [selectedUser, loadPermissions]);
+    }, [selectedUser, allFuncs, buildDefaultPermMap]);
 
-    // Función que se ejecuta cada vez que haces clic en un checkbox
-    const handleToggle = (funcId, action) => {
-        setPermissions(prev => {
-            const currentFuncPerms = prev[funcId] || { ver: false, crear: false, editar: false, eliminar: false, imprimir: false };
+    // Permisos del usuario actualmente seleccionado (atajo de lectura)
+    const permissions = selectedUser ? (permissionsByUser[selectedUser.idUsuario] || {}) : {};
+
+    // Función que se ejecuta cada vez que haces clic en un checkbox (solo afecta al usuario seleccionado)
+    const handleToggle = (funcId, action = 'ver') => {
+        if (!selectedUser) return;
+        setPermissionsByUser(prev => {
+            const userPerms = prev[selectedUser.idUsuario] || {};
+            const currentFuncPerms = userPerms[funcId] || { ver: false, crear: false, editar: false, eliminar: false, imprimir: false };
             return {
                 ...prev,
-                [funcId]: {
-                    ...currentFuncPerms,
-                    [action]: !currentFuncPerms[action]
+                [selectedUser.idUsuario]: {
+                    ...userPerms,
+                    [funcId]: {
+                        ...currentFuncPerms,
+                        [action]: !currentFuncPerms[action]
+                    }
                 }
             };
         });
     };
 
-    // Función para enviar los cambios a la base de datos
+    // Solo simula el guardado: no llama a ninguna API ni almacena nada fuera de este estado en memoria.
     const applyPermissions = () => {
-        alert("Permisos guardados con éxito.");
+        setSavedMessage(true);
+        setTimeout(() => setSavedMessage(false), 2000);
     };
 
     const getRoleBadgeClass = (nombreRol) => {
@@ -221,15 +240,31 @@ const SuperUserDashboard = () => {
                                         <div className="perm-box">
                                             <p className="perm-subtitle">Módulos habilitados</p>
 
-                                            <PermissionTree
-                                                functionalities={allFuncs}
-                                                permissions={permissions}
-                                                onToggle={handleToggle}
-                                            />
+                                            {selectedUser.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO' ? (
+                                                <p style={{ fontSize: '0.8rem', color: '#6b7280', fontStyle: 'italic' }}>
+                                                    El Superusuario tiene acceso total y no puede modificarse.
+                                                </p>
+                                            ) : (
+                                                <PermissionTree
+                                                    functionalities={allFuncs}
+                                                    permissions={permissions}
+                                                    onToggle={handleToggle}
+                                                />
+                                            )}
 
-                                            <button className="apply-btn" onClick={applyPermissions}>
+                                            <button
+                                                className="apply-btn"
+                                                onClick={applyPermissions}
+                                                disabled={selectedUser.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO'}
+                                            >
                                                 ✓ Aplicar cambios
                                             </button>
+
+                                            {savedMessage && (
+                                                <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#16a34a', fontWeight: 600 }}>
+                                                    ✓ Permisos actualizados para {selectedUser.usuario}
+                                                </p>
+                                            )}
                                         </div>
                                     </>
                                 )}
