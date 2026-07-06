@@ -14,6 +14,19 @@ const SuperUserDashboard = () => {
     const [activeTab, setActiveTab] = useState('usuarios');
     const [savedMessage, setSavedMessage] = useState(false);
 
+    // --- Cambiar mi propia clave (Superusuario) ---
+    const [ownCurrentPass, setOwnCurrentPass] = useState('');
+    const [ownNewPass, setOwnNewPass] = useState('');
+    const [ownConfirmPass, setOwnConfirmPass] = useState('');
+    const [ownPassError, setOwnPassError] = useState('');
+    const [ownPassSuccess, setOwnPassSuccess] = useState(false);
+
+    // --- Cambiar la clave de otro usuario (reseteo administrativo) ---
+    const [targetUserId, setTargetUserId] = useState('');
+    const [targetNewPass, setTargetNewPass] = useState('');
+    const [targetPassError, setTargetPassError] = useState('');
+    const [targetPassSuccess, setTargetPassSuccess] = useState(false);
+
     // --- Crear usuario (simulado, solo en memoria) ---
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [newUsuario, setNewUsuario] = useState('');
@@ -167,6 +180,52 @@ const SuperUserDashboard = () => {
             case 'SECRETARIA': return 'role-se';
             default: return 'role-se';
         }
+    };
+
+    // Cambia mi propia clave (Superusuario). Solo valida en memoria, no llama a ningún backend.
+    const handleChangeOwnPassword = (e) => {
+        e.preventDefault();
+        setOwnPassError('');
+        setOwnPassSuccess(false);
+
+        if (!ownCurrentPass || !ownNewPass || !ownConfirmPass) {
+            setOwnPassError('Todos los campos son obligatorios.');
+            return;
+        }
+        if (ownNewPass.length < 8) {
+            setOwnPassError('La nueva contraseña debe tener al menos 8 caracteres.');
+            return;
+        }
+        if (ownNewPass !== ownConfirmPass) {
+            setOwnPassError('La nueva contraseña y su confirmación no coinciden.');
+            return;
+        }
+
+        setOwnPassSuccess(true);
+        setOwnCurrentPass('');
+        setOwnNewPass('');
+        setOwnConfirmPass('');
+        setTimeout(() => setOwnPassSuccess(false), 2500);
+    };
+
+    // Resetea la clave de otro usuario seleccionado en el combo. Solo simulado en memoria.
+    const handleResetUserPassword = (e) => {
+        e.preventDefault();
+        setTargetPassError('');
+        setTargetPassSuccess(false);
+
+        if (!targetUserId) {
+            setTargetPassError('Selecciona un usuario.');
+            return;
+        }
+        if (targetNewPass.length < 8) {
+            setTargetPassError('La nueva contraseña debe tener al menos 8 caracteres.');
+            return;
+        }
+
+        setTargetPassSuccess(true);
+        setTargetNewPass('');
+        setTimeout(() => setTargetPassSuccess(false), 2500);
     };
 
     return (
@@ -385,6 +444,80 @@ const SuperUserDashboard = () => {
                                 )}
                             </aside>
                         </>
+                    ) : activeTab === 'clave' ? (
+                        <main className="dash-content">
+                            <h3 className="section-title">Cambiar Clave</h3>
+
+                            <div className="perm-box" style={{ marginBottom: '1.5rem' }}>
+                                <p className="perm-subtitle">Mi clave (Superusuario)</p>
+                                <form onSubmit={handleChangeOwnPassword} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxWidth: '360px' }}>
+                                    <input
+                                        type="password"
+                                        placeholder="Contraseña actual"
+                                        value={ownCurrentPass}
+                                        onChange={(e) => setOwnCurrentPass(e.target.value)}
+                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                    />
+                                    <input
+                                        type="password"
+                                        placeholder="Nueva contraseña"
+                                        value={ownNewPass}
+                                        onChange={(e) => setOwnNewPass(e.target.value)}
+                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                    />
+                                    <input
+                                        type="password"
+                                        placeholder="Confirmar nueva contraseña"
+                                        value={ownConfirmPass}
+                                        onChange={(e) => setOwnConfirmPass(e.target.value)}
+                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                    />
+                                    <button type="submit" className="apply-btn">
+                                        ✓ Cambiar mi clave
+                                    </button>
+                                    {ownPassError && (
+                                        <p style={{ color: '#dc2626', fontSize: '0.85rem', margin: 0 }}>{ownPassError}</p>
+                                    )}
+                                    {ownPassSuccess && (
+                                        <p style={{ color: '#16a34a', fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>✓ Clave actualizada correctamente.</p>
+                                    )}
+                                </form>
+                            </div>
+
+                            <div className="perm-box">
+                                <p className="perm-subtitle">Restablecer clave de otro usuario</p>
+                                <form onSubmit={handleResetUserPassword} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxWidth: '360px' }}>
+                                    <select
+                                        value={targetUserId}
+                                        onChange={(e) => setTargetUserId(e.target.value)}
+                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                    >
+                                        <option value="">Selecciona un usuario...</option>
+                                        {usuarios.filter(u => u.estado).map(u => (
+                                            <option key={u.idUsuario} value={u.idUsuario}>
+                                                {u.usuario} ({u.rol?.nombreRol?.toLowerCase()})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        type="password"
+                                        placeholder="Nueva contraseña para el usuario"
+                                        value={targetNewPass}
+                                        onChange={(e) => setTargetNewPass(e.target.value)}
+                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                    />
+                                    <button type="submit" className="apply-btn">
+                                        ✓ Restablecer clave
+                                    </button>
+                                    {targetPassError && (
+                                        <p style={{ color: '#dc2626', fontSize: '0.85rem', margin: 0 }}>{targetPassError}</p>
+                                    )}
+                                    {targetPassSuccess && (
+                                        <p style={{ color: '#16a34a', fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>✓ Clave restablecida correctamente.</p>
+                                    )}
+                                </form>
+                            </div>
+                        </main>
                     ) : (
                         <main className="dash-content">
                             <h3 className="section-title">Próximamente</h3>
