@@ -436,12 +436,31 @@ const SecretariaUserDashboard = () => {
     const aulasDisponiblesModal = aulas.filter(a =>
         a.anio === anioMatricula && a.estado !== 'llena' && a.estado !== 'eliminada'
     );
+    const alumnosDisponiblesModal = aulas
+    .filter(a => a.anio === anioMatricula)
+    .flatMap(a => (alumnosPorAula[a.id] || []).map(al => ({
+        ...al,
+        aulaLabel: `${a.nivel} ${a.grado} "${a.seccion}"`
+    })))
+    .filter(al => {
+        const q = nombreAlumnoMatricula.trim().toLowerCase();
+        if (!q) return true;
+        return al.nombre.toLowerCase().includes(q);
+    });
 
     const seleccionarAlumnoModal = (alumno) => {
+    if (activeTab === 'matricula') {
+        setNombreAlumnoMatricula(alumno.nombre);
+        setMatriculaMensaje('');
+    }
+
+    if (activeTab === 'pagos') {
         setNombreAlumnoPagos(alumno.nombre);
-        setShowAlumnoModal(false);
         setReciboMensaje('');
-    };
+    }
+
+    setShowAlumnoModal(false);
+};
 
     const seleccionarAulaModal = (aula) => {
         if (aula.estado === 'llena') return; // no se puede elegir un aula llena
@@ -608,15 +627,26 @@ const SecretariaUserDashboard = () => {
                                 </div>
 
                                 <div className="field-group">
-                                    <label className="field-label">Nombre del alumno</label>
-                                    <input
-                                        type="text"
-                                        className="readonly-input"
-                                        placeholder="Ej. Carlos Chinga Ramos"
-                                        value={nombreAlumnoMatricula}
-                                        onChange={(e) => setNombreAlumnoMatricula(e.target.value)}
-                                    />
-                                </div>
+    <label className="field-label">Alumno (apellidos y nombre)</label>
+
+    <div className="field-with-btn">
+        <input
+            type="text"
+            className="readonly-input"
+            placeholder="Selecciona un alumno con el botón Modal"
+            value={nombreAlumnoMatricula}
+            onChange={(e) => setNombreAlumnoMatricula(e.target.value)}
+        />
+
+        <button
+            className="modal-trigger-btn"
+            type="button"
+            onClick={() => setShowAlumnoModal(true)}
+        >
+            <IconSearch /> Modal
+        </button>
+    </div>
+</div>
 
                                 <div className="field-group">
                                     <label className="field-label">Aula (nivel · grado · sección)</label>
@@ -633,6 +663,54 @@ const SecretariaUserDashboard = () => {
                                         </button>
                                     </div>
                                 </div>
+
+                                {showAlumnoModal && activeTab === 'matricula' && (
+    <div
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+        onClick={() => setShowAlumnoModal(false)}
+    >
+        <div
+            className="perm-box"
+            style={{ background: 'white', width: '440px', maxHeight: '70vh', overflowY: 'auto', padding: '1.25rem' }}
+            onClick={(e) => e.stopPropagation()}
+        >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <h3 className="section-title" style={{ margin: 0 }}>Buscar alumno — {anioMatricula}</h3>
+                <button className="icon-btn" onClick={() => setShowAlumnoModal(false)}>✕</button>
+            </div>
+
+            <input
+                type="text"
+                className="readonly-input"
+                placeholder="Buscar por apellido o nombre"
+                value={nombreAlumnoMatricula}
+                onChange={(e) => setNombreAlumnoMatricula(e.target.value)}
+                style={{ marginBottom: '0.75rem' }}
+            />
+
+            {alumnosDisponiblesModal.length === 0 ? (
+                <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+                    No se encontraron alumnos para la búsqueda.
+                </p>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {alumnosDisponiblesModal.map((al, idx) => (
+                        <button
+                            key={`${al.aud}-${al.n}-${idx}`}
+                            type="button"
+                            className="clickable-row"
+                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', background: 'white', cursor: 'pointer', textAlign: 'left' }}
+                            onClick={() => seleccionarAlumnoModal(al)}
+                        >
+                            <span>{al.nombre}</span>
+                            <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>{al.aulaLabel}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    </div>
+)}
 
                                 {showAulaModal && (
                                     <div
