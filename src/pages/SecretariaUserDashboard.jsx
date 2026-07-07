@@ -192,6 +192,7 @@ const SecretariaUserDashboard = () => {
     // --- Estado de Matrícula (solo en memoria) ---
     const [anioMatricula, setAnioMatricula] = useState('2026');
     const [nombreAlumnoMatricula, setNombreAlumnoMatricula] = useState('');
+    const [alumnoMatriculaSeleccionado, setAlumnoMatriculaSeleccionado] = useState(false);
     const [selectedAulaMatriculaId, setSelectedAulaMatriculaId] = useState(null);
     const [showAlumnoModal, setShowAlumnoModal] = useState(false);
     const [showAulaModal, setShowAulaModal] = useState(false);
@@ -451,6 +452,7 @@ const SecretariaUserDashboard = () => {
     const seleccionarAlumnoModal = (alumno) => {
     if (activeTab === 'matricula') {
         setNombreAlumnoMatricula(alumno.nombre);
+        setAlumnoMatriculaSeleccionado(true);
         setMatriculaMensaje('');
     }
 
@@ -635,7 +637,10 @@ const SecretariaUserDashboard = () => {
             className="readonly-input"
             placeholder="Selecciona un alumno con el botón Modal"
             value={nombreAlumnoMatricula}
-            onChange={(e) => setNombreAlumnoMatricula(e.target.value)}
+            onChange={(e) => {setNombreAlumnoMatricula(e.target.value)
+                setAlumnoMatriculaSeleccionado(false);
+            }}
+            
         />
 
         <button
@@ -778,47 +783,56 @@ const SecretariaUserDashboard = () => {
                             </main>
 
                             <aside className="dash-permissions">
-                                <h3 className="section-title">
-                                    Cuotas generadas — {nombreAlumnoMatricula.trim() || 'sin nombre'} · {anioMatricula}
-                                </h3>
+    {!alumnoMatriculaSeleccionado ? (
+        <div className="empty-aula-detail">
+            Selecciona un alumno con el botón "Modal" para generar sus cuotas.
+        </div>
+    ) : (
+        <>
+            <h3 className="section-title">
+                Cuotas generadas — {nombreAlumnoMatricula.trim()} · {anioMatricula}
+            </h3>
 
-                                <table className="quota-table">
-                                    <thead>
-                                        <tr>
-                                            <th>#</th>
-                                            <th>Concepto</th>
-                                            <th>Monto</th>
-                                            <th>Orden</th>
-                                            <th>Estado</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {cuotasConEstado.map((cuota, index) => (
-                                            <tr key={cuota.id}>
-                                                <td>{index + 1}</td>
-                                                <td>{cuota.nombre}</td>
-                                                <td>S/ {cuota.monto}</td>
-                                                <td>{cuota.orden}</td>
-                                                <td>
-                                                    {cuota.estadoPago === 'pagado' ? (
-                                                        <span className="status-badge status-active">Pagado (P)</span>
-                                                    ) : cuota.estadoPago === 'pagar' ? (
-                                                        <button className="quota-pagar-btn" onClick={() => pagarCuota(cuota.id)}>Pagar</button>
-                                                    ) : (
-                                                        <span className="estado-badge estado-casi">bloqueado</span>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-
-                                {primerBloqueado && (
-                                    <p className="quota-note">
-                                        ⓘ No se puede pagar la cuota {primerBloqueado.orden}{cuotaAnteriorAlBloqueo ? ` sin pagar la ${cuotaAnteriorAlBloqueo.orden}` : ''}
-                                    </p>
+            <table className="quota-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Concepto</th>
+                        <th>Monto</th>
+                        <th>Orden</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {cuotasConEstado.map((cuota, index) => (
+                        <tr key={cuota.id}>
+                            <td>{index + 1}</td>
+                            <td>{cuota.nombre}</td>
+                            <td>S/ {cuota.monto}</td>
+                            <td>{cuota.orden}</td>
+                            <td>
+                                {cuota.estadoPago === 'pagado' ? (
+                                    <span className="status-badge status-active">Pagado (P)</span>
+                                ) : cuota.estadoPago === 'pagar' ? (
+                                    <button className="quota-pagar-btn" onClick={() => pagarCuota(cuota.id)}>Pagar</button>
+                                ) : (
+                                    <span className="estado-badge estado-casi">bloqueado</span>
                                 )}
-                            </aside>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+
+            {primerBloqueado && (
+                <p className="quota-note">
+                    ⓘ No se puede pagar la cuota {primerBloqueado.orden}
+                    {cuotaAnteriorAlBloqueo ? ` sin pagar la ${cuotaAnteriorAlBloqueo.orden}` : ''}
+                </p>
+            )}
+        </>
+    )}
+</aside>
 
                         </>
                     ) : activeTab === 'pagos' ? (
