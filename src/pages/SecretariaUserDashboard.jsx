@@ -192,11 +192,9 @@ const SecretariaUserDashboard = () => {
     // --- Estado de Matrícula (solo en memoria) ---
     const [anioMatricula, setAnioMatricula] = useState('2026');
     const [nombreAlumnoMatricula, setNombreAlumnoMatricula] = useState('');
-    const [selectedAlumno, setSelectedAlumno] = useState({ apPaterno: 'Chinga', apMaterno: 'Ramos', nombre: 'Carlos' });
     const [selectedAulaMatriculaId, setSelectedAulaMatriculaId] = useState(null);
     const [showAlumnoModal, setShowAlumnoModal] = useState(false);
     const [showAulaModal, setShowAulaModal] = useState(false);
-    const [alumnoQuery, setAlumnoQuery] = useState('Chinga');
     const [aulaQuery, setAulaQuery] = useState('');
     // Cuotas ya pagadas por matrícula (alumno+año): { "chinga-ramos-carlos-2026": [1, 2] }
     const [pagosPorMatricula, setPagosPorMatricula] = useState({
@@ -206,10 +204,11 @@ const SecretariaUserDashboard = () => {
 
     // --- Estado de Pagos (solo en memoria) ---
     const [anioConsultaPagos, setAnioConsultaPagos] = useState('2026');
+    const [nombreAlumnoPagos, setNombreAlumnoPagos] = useState('');
     const [pagosPorMatriculaPagos, setPagosPorMatriculaPagos] = useState({
         'chinga-ramos-carlos-2026': [1, 2, 3] // Matrícula, Marzo y Abril ya pagados en el demo
     });
-    const [correlativoBoleta, setCorrelativoBoleta] = useState(1);
+    const [correlativoBoleta, setCorrelativoBoleta] = useState(() => Math.floor(100000 + Math.random() * 900000));
     const [reciboMensaje, setReciboMensaje] = useState('');
 
     // --- Estado de Conceptos / Tarifario (solo en memoria, por año) ---
@@ -426,13 +425,6 @@ const SecretariaUserDashboard = () => {
         }));
     };
 
-    // Alumnos que coinciden con la búsqueda del modal (por apellido paterno, materno o nombre)
-    const alumnosFiltradosModal = mockAlumnosMaestro.filter(a => {
-        const q = alumnoQuery.trim().toLowerCase();
-        if (!q) return true;
-        return a.apPaterno.toLowerCase().includes(q) || a.apMaterno.toLowerCase().includes(q) || a.nombre.toLowerCase().includes(q);
-    });
-
     // Aulas que coinciden con la búsqueda del modal (por nivel, grado o sección)
     const aulasFiltradasModal = aulas.filter(a => {
         const q = aulaQuery.trim().toLowerCase();
@@ -446,9 +438,9 @@ const SecretariaUserDashboard = () => {
     );
 
     const seleccionarAlumnoModal = (alumno) => {
-        setSelectedAlumno(alumno);
+        setNombreAlumnoPagos(alumno.nombre);
         setShowAlumnoModal(false);
-        setMatriculaMensaje('');
+        setReciboMensaje('');
     };
 
     const seleccionarAulaModal = (aula) => {
@@ -492,9 +484,17 @@ const SecretariaUserDashboard = () => {
     };
 
     // --- Derivados de Pagos ---
-    const alumnoKeyBase = `${selectedAlumno.apPaterno}-${selectedAlumno.apMaterno}-${selectedAlumno.nombre}`.toLowerCase();
+    const alumnoKeyBase = nombreAlumnoPagos.trim().toLowerCase().replace(/,/g, '').replace(/\s+/g, '-');
     const matriculaKeyPagos = `${alumnoKeyBase}-${anioConsultaPagos}`;
     const pagadosIdsPagos = pagosPorMatriculaPagos[matriculaKeyPagos] || [];
+
+    // Lista de TODOS los alumnos reales matriculados (de cualquier aula del año consultado), para el modal de Pagos
+    const todosLosAlumnosPagos = aulas
+        .filter(a => a.anio === anioConsultaPagos)
+        .flatMap(a => (alumnosPorAula[a.id] || []).map(al => ({
+            ...al,
+            aulaLabel: `${a.nivel} ${a.grado} "${a.seccion}"`
+        })));
 
     let bloqueoPagosEncontrado = false;
     const cuotasPagosConEstado = mockCuotasPagos.map((cuota) => {
@@ -514,15 +514,15 @@ const SecretariaUserDashboard = () => {
     const historialAlumno = mockHistorialAlumnos[alumnoKeyBase] || historialPorDefecto;
     const deudaAnterior = historialAlumno.find(h => h.estado === 'pendiente');
 
-    // Marca una cuota como pagada, genera un correlativo de boleta nuevo (solo en memoria)
+    // Marca una cuota como pagada, genera un correlativo de boleta ALEATORIO válido (6 dígitos, solo en memoria)
     const pagarCuotaPagos = (cuotaId) => {
-        const nuevoCorrelativo = correlativoBoleta + 1;
+        const nuevoCorrelativo = Math.floor(100000 + Math.random() * 900000);
         setPagosPorMatriculaPagos(prev => ({
             ...prev,
             [matriculaKeyPagos]: [...(prev[matriculaKeyPagos] || []), cuotaId]
         }));
         setCorrelativoBoleta(nuevoCorrelativo);
-        setReciboMensaje(`✓ Recibo BOL-${String(nuevoCorrelativo).padStart(6, '0')} generado. Se registró en Recibo y en Auditoría.`);
+        setReciboMensaje(`✓ Recibo BOL-${nuevoCorrelativo} generado. Se registró en Recibo y en Auditoría.`);
         setTimeout(() => setReciboMensaje(''), 3000);
     };
 
@@ -767,7 +767,8 @@ const SecretariaUserDashboard = () => {
                                                 type="text"
                                                 className="readonly-input"
                                                 readOnly
-                                                value={`${selectedAlumno.apPaterno} ${selectedAlumno.apMaterno}, ${selectedAlumno.nombre}`}
+                                                placeholder="Selecciona un alumno con el botón Modal"
+                                                value={nombreAlumnoPagos}
                                             />
                                             <button className="modal-trigger-btn" type="button" onClick={() => setShowAlumnoModal(true)}>
                                                 <IconSearch /> Modal
@@ -776,108 +777,161 @@ const SecretariaUserDashboard = () => {
                                     </div>
                                 </div>
 
+                                {showAlumnoModal && (
+                                    <div
+                                        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+                                        onClick={() => setShowAlumnoModal(false)}
+                                    >
+                                        <div
+                                            className="perm-box"
+                                            style={{ background: 'white', width: '440px', maxHeight: '70vh', overflowY: 'auto', padding: '1.25rem' }}
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                                <h3 className="section-title" style={{ margin: 0 }}>Alumnos matriculados — {anioConsultaPagos}</h3>
+                                                <button className="icon-btn" onClick={() => setShowAlumnoModal(false)}>✕</button>
+                                            </div>
+
+                                            {todosLosAlumnosPagos.length === 0 ? (
+                                                <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>No hay alumnos matriculados aún para el año {anioConsultaPagos}.</p>
+                                            ) : (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                    {todosLosAlumnosPagos.map((al, idx) => (
+                                                        <button
+                                                            key={`${al.aud}-${al.n}-${idx}`}
+                                                            type="button"
+                                                            className="clickable-row"
+                                                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', background: 'white', cursor: 'pointer', textAlign: 'left' }}
+                                                            onClick={() => seleccionarAlumnoModal(al)}
+                                                        >
+                                                            <span>{al.nombre}</span>
+                                                            <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>{al.aulaLabel}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {deudaAnterior && (
                                     <div className="warning-banner">
                                         <IconWarning /> Deuda pendiente en año {deudaAnterior.anio} — S/ {deudaAnterior.monto} (cuota {deudaAnterior.mes}). No se podrá matricular en {anioConsultaPagos} hasta regularizar.
                                     </div>
                                 )}
 
-                                <h3 className="section-title" style={{ display: 'flex', alignItems: 'center' }}>
-                                    Deudas y cuotas — {selectedAlumno.nombre} {selectedAlumno.apPaterno} · {anioConsultaPagos}
-                                    <span className="badge-anio-actual">año actual</span>
-                                </h3>
+                                {!nombreAlumnoPagos ? (
+                                    <div className="empty-aula-detail">
+                                        👈 Selecciona un alumno con el botón "Modal" para ver sus deudas y cuotas.
+                                    </div>
+                                ) : (
+                                    <>
+                                        <h3 className="section-title" style={{ display: 'flex', alignItems: 'center' }}>
+                                            Deudas y cuotas — {nombreAlumnoPagos} · {anioConsultaPagos}
+                                            <span className="badge-anio-actual">año actual</span>
+                                        </h3>
 
-                                <table className="pagos-table">
-                                    <thead>
-                                        <tr>
-                                            <th>#</th>
-                                            <th>Concepto</th>
-                                            <th>Monto</th>
-                                            <th>Estado</th>
-                                            <th>Acción</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {cuotasPagosConEstado.map((cuota, index) => {
-                                            const anteriorBloqueo = cuota.estadoPago === 'bloqueado'
-                                                ? cuotasPagosConEstado.filter(c => c.orden < cuota.orden).slice(-1)[0]
-                                                : null;
-
-                                            return (
-                                                <tr
-                                                    key={cuota.id}
-                                                    className={
-                                                        cuota.estadoPago === 'deuda' ? 'pagos-row-deuda' :
-                                                        cuota.estadoPago === 'bloqueado' ? 'pagos-row-bloqueado' : ''
-                                                    }
-                                                >
-                                                    <td>{index + 1}</td>
-                                                    <td>{cuota.concepto}</td>
-                                                    <td>S/ {cuota.monto}</td>
-                                                    <td>
-                                                        {cuota.estadoPago === 'pagado' ? (
-                                                            <span className="estado-pagado-pill">pagado</span>
-                                                        ) : cuota.estadoPago === 'deuda' ? (
-                                                            <span className="estado-deuda-pill">deuda</span>
-                                                        ) : (
-                                                            <span className="estado-bloqueado-pill">bloqueado</span>
-                                                        )}
-                                                    </td>
-                                                    <td>
-                                                        {cuota.estadoPago === 'pagado' ? (
-                                                            <button className="recibo-link" onClick={() => verRecibo(cuota)}>Recibo</button>
-                                                        ) : cuota.estadoPago === 'deuda' ? (
-                                                            <button className="pagar-btn-solid" onClick={() => pagarCuotaPagos(cuota.id)}>Pagar</button>
-                                                        ) : (
-                                                            <span className="bloqueado-hint">
-                                                                requiere pagar{anteriorBloqueo ? ` cuota #${anteriorBloqueo.orden}` : ' la cuota anterior'} antes
-                                                            </span>
-                                                        )}
-                                                    </td>
+                                        <table className="pagos-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>#</th>
+                                                    <th>Concepto</th>
+                                                    <th>Monto</th>
+                                                    <th>Estado</th>
+                                                    <th>Acción</th>
                                                 </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
+                                            </thead>
+                                            <tbody>
+                                                {cuotasPagosConEstado.map((cuota, index) => {
+                                                    const anteriorBloqueo = cuota.estadoPago === 'bloqueado'
+                                                        ? cuotasPagosConEstado.filter(c => c.orden < cuota.orden).slice(-1)[0]
+                                                        : null;
 
-                                <p className="pagos-footer-note">
-                                    Las cuotas siguientes no podrán pagarse mientras existan cuotas anteriores pendientes.
-                                </p>
+                                                    return (
+                                                        <tr
+                                                            key={cuota.id}
+                                                            className={
+                                                                cuota.estadoPago === 'deuda' ? 'pagos-row-deuda' :
+                                                                cuota.estadoPago === 'bloqueado' ? 'pagos-row-bloqueado' : ''
+                                                            }
+                                                        >
+                                                            <td>{index + 1}</td>
+                                                            <td>{cuota.concepto}</td>
+                                                            <td>S/ {cuota.monto}</td>
+                                                            <td>
+                                                                {cuota.estadoPago === 'pagado' ? (
+                                                                    <span className="estado-pagado-pill">pagado</span>
+                                                                ) : cuota.estadoPago === 'deuda' ? (
+                                                                    <span className="estado-deuda-pill">deuda</span>
+                                                                ) : (
+                                                                    <span className="estado-bloqueado-pill">bloqueado</span>
+                                                                )}
+                                                            </td>
+                                                            <td>
+                                                                {cuota.estadoPago === 'pagado' ? (
+                                                                    <button className="recibo-link" onClick={() => verRecibo(cuota)}>Recibo</button>
+                                                                ) : cuota.estadoPago === 'deuda' ? (
+                                                                    <button className="pagar-btn-solid" onClick={() => pagarCuotaPagos(cuota.id)}>Pagar</button>
+                                                                ) : (
+                                                                    <span className="bloqueado-hint">
+                                                                        requiere pagar{anteriorBloqueo ? ` cuota #${anteriorBloqueo.orden}` : ' la cuota anterior'} antes
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
 
-                                {reciboMensaje && (
-                                    <p style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: '#16a34a', fontWeight: 600 }}>
-                                        {reciboMensaje}
-                                    </p>
+                                        <p className="pagos-footer-note">
+                                            Las cuotas siguientes no podrán pagarse mientras existan cuotas anteriores pendientes.
+                                        </p>
+
+                                        {reciboMensaje && (
+                                            <p style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: '#16a34a', fontWeight: 600 }}>
+                                                {reciboMensaje}
+                                            </p>
+                                        )}
+
+                                        <p className="mockup-caption">Vista de Pagos — pago secuencial de cuotas con generación de recibo y correlativo.</p>
+                                    </>
                                 )}
-
-                                <p className="mockup-caption">Vista de Pagos — pago secuencial de cuotas con generación de recibo y correlativo.</p>
                             </main>
 
                             <aside className="dash-permissions">
-                                <div className="perm-box" style={{ marginBottom: '1.1rem' }}>
-                                    <h3 className="section-title">Historial de años anteriores</h3>
-                                    {historialAlumno.map((h) => (
-                                        <div className="historial-row" key={h.anio}>
-                                            <span>{h.anio}</span>
-                                            {h.estado === 'pendiente' ? (
-                                                <span className="badge-pendiente-anio">{h.detalle}</span>
-                                            ) : (
-                                                <span className="badge-al-dia">{h.detalle}</span>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="perm-box">
-                                    <h3 className="section-title">Recibo generado al pagar</h3>
-                                    <p className="boleta-box-label">Correlativo de boleta</p>
-                                    <div className="boleta-input-display">
-                                        BOL-{String(correlativoBoleta).padStart(6, '0')}
+                                {!nombreAlumnoPagos ? (
+                                    <div className="empty-aula-detail">
+                                        Selecciona un alumno para ver su historial y recibo.
                                     </div>
-                                    <p className="boleta-hint-text">
-                                        Al confirmar pago se registra en tabla recibo y en Auditoría (usuario + fecha + cuota pagada).
-                                    </p>
-                                </div>
+                                ) : (
+                                    <>
+                                        <div className="perm-box" style={{ marginBottom: '1.1rem' }}>
+                                            <h3 className="section-title">Historial de años anteriores</h3>
+                                            {historialAlumno.map((h) => (
+                                                <div className="historial-row" key={h.anio}>
+                                                    <span>{h.anio}</span>
+                                                    {h.estado === 'pendiente' ? (
+                                                        <span className="badge-pendiente-anio">{h.detalle}</span>
+                                                    ) : (
+                                                        <span className="badge-al-dia">{h.detalle}</span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <div className="perm-box">
+                                            <h3 className="section-title">Recibo generado al pagar</h3>
+                                            <p className="boleta-box-label">Correlativo de boleta</p>
+                                            <div className="boleta-input-display">
+                                                BOL-{correlativoBoleta}
+                                            </div>
+                                            <p className="boleta-hint-text">
+                                                Al confirmar pago se registra en tabla recibo y en Auditoría (usuario + fecha + cuota pagada).
+                                            </p>
+                                        </div>
+                                    </>
+                                )}
                             </aside>
                         </>
                     ) : activeTab === 'alumnos' ? (
