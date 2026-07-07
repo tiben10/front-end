@@ -175,6 +175,10 @@ const SecretariaUserDashboard = () => {
     const [anioHistorico, setAnioHistorico] = useState('2026');
     const [showVerTodosModal, setShowVerTodosModal] = useState(false);
 
+    // --- Alumnos (solo en memoria): selección de aula para ver sus alumnos guardados ---
+    const [anioAlumnos, setAnioAlumnos] = useState('2026');
+    const [selectedAulaAlumnosId, setSelectedAulaAlumnosId] = useState(null);
+
     // --- Cambiar mi clave (solo en memoria) ---
     const [claveActual, setClaveActual] = useState('');
     const [claveNueva, setClaveNueva] = useState('');
@@ -299,6 +303,11 @@ const SecretariaUserDashboard = () => {
     const aulasFiltradas = aulas.filter(a => (nivelFiltro === 'Todos' || a.nivel === nivelFiltro) && a.anio === anioAcademico);
     const selectedAula = aulas.find(a => a.id === selectedAulaId) || null;
     const alumnosDeAula = selectedAula ? (alumnosPorAula[selectedAula.id] || []) : [];
+
+    // Aulas y alumnos para la pestaña "Alumnos" (independiente de la pestaña Aulas)
+    const aulasParaAlumnos = aulas.filter(a => a.anio === anioAlumnos && a.estado !== 'eliminada');
+    const selectedAulaAlumnos = aulas.find(a => a.id === selectedAulaAlumnosId) || null;
+    const alumnosDeAulaSeleccionada = selectedAulaAlumnos ? (alumnosPorAula[selectedAulaAlumnos.id] || []) : [];
 
     // Valida y crea una nueva aula (solo en memoria). Respeta la Unique Key compuesta: Año + Nivel + Grado + Sección
     const crearAula = (e) => {
@@ -869,6 +878,126 @@ const SecretariaUserDashboard = () => {
                                         Al confirmar pago se registra en tabla recibo y en Auditoría (usuario + fecha + cuota pagada).
                                     </p>
                                 </div>
+                            </aside>
+                        </>
+                    ) : activeTab === 'alumnos' ? (
+                        <>
+                            <main className="dash-content">
+                                <div className="filters-row">
+                                    <div className="filter-group">
+                                        <label>Año académico</label>
+                                        <select
+                                            className="filter-select"
+                                            value={anioAlumnos}
+                                            onChange={(e) => setAnioAlumnos(e.target.value)}
+                                        >
+                                            <option value="2026">2026</option>
+                                            <option value="2025">2025</option>
+                                            <option value="2024">2024</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <h3 className="section-title">Aulas — {anioAlumnos}</h3>
+
+                                {aulasParaAlumnos.length === 0 ? (
+                                    <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>No hay aulas registradas para el año {anioAlumnos}.</p>
+                                ) : (
+                                    <table className="users-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Nivel</th>
+                                                <th>Grado</th>
+                                                <th>Sec.</th>
+                                                <th>Alumnos</th>
+                                                <th>Estado</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {aulasParaAlumnos.map((aula) => {
+                                                const info = estadoInfo(aula.estado);
+                                                const isSelected = selectedAulaAlumnosId === aula.id;
+
+                                                return (
+                                                    <tr
+                                                        key={aula.id}
+                                                        className={`clickable-row ${isSelected ? 'selected-row-aula' : ''}`}
+                                                        onClick={() => setSelectedAulaAlumnosId(aula.id)}
+                                                    >
+                                                        <td>{aula.nivel}</td>
+                                                        <td>{aula.grado}</td>
+                                                        <td>{aula.seccion}</td>
+                                                        <td>{aula.alumnos}</td>
+                                                        <td>
+                                                            <span className={`estado-badge ${info.badgeClass}`}>{info.label}</span>
+                                                        </td>
+                                                        <td className="action-cell">
+                                                            <button
+                                                                className="eye-btn"
+                                                                title="Ver alumnos"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedAulaAlumnosId(aula.id);
+                                                                }}
+                                                            >
+                                                                <IconEye />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </main>
+
+                            <aside className="dash-permissions">
+                                {!selectedAulaAlumnos ? (
+                                    <div className="empty-aula-detail">
+                                        👈 Selecciona un aula en la tabla para ver sus alumnos.
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="aula-detail-header">
+                                            <h3 className="aula-detail-title">
+                                                {selectedAulaAlumnos.nivel} {selectedAulaAlumnos.grado} {selectedAulaAlumnos.seccion} — alumnos {anioAlumnos}
+                                            </h3>
+                                            <span className={`aula-cupo-badge ${estadoInfo(selectedAulaAlumnos.estado).badgeClass}`}>
+                                                {selectedAulaAlumnos.alumnos}/{selectedAulaAlumnos.cupo}
+                                            </span>
+                                        </div>
+
+                                        {alumnosDeAulaSeleccionada.length === 0 ? (
+                                            <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>Aún no hay alumnos matriculados en esta aula.</p>
+                                        ) : (
+                                            <table className="alumnos-mini-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>#</th>
+                                                        <th>Apellidos y nombre</th>
+                                                        <th>Matríc.</th>
+                                                        <th>Aud.</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {alumnosDeAulaSeleccionada.map((al) => (
+                                                        <tr key={al.n}>
+                                                            <td>{al.n}</td>
+                                                            <td>{al.nombre}</td>
+                                                            <td>
+                                                                <span className={`matric-badge ${matriculaBadgeClass(al.matricula)}`}>
+                                                                    {al.matricula}
+                                                                </span>
+                                                            </td>
+                                                            <td className="aud-text">{al.aud}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        )}
+                                    </>
+                                )}
                             </aside>
                         </>
                     ) : activeTab === 'aulas' ? (
