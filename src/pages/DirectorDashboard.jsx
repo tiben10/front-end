@@ -45,14 +45,73 @@ const DirectorDashboard = () => {
                     </aside>
 
                     <main className="dash-content">
-                        <h3 className="section-title">Vista principal del Director</h3>
-                        <p>
-                            Panel de consulta para revisar información académica del sistema de matrículas.
-                        </p>
-                        <p className="table-footer-note">
-                            El Director tiene acceso de solo lectura, sin acciones de crear, editar o eliminar.
-                        </p>
-                    </main>
+    <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '1rem',
+        marginBottom: '1.2rem'
+    }}>
+        <div className="perm-box">
+            <p className="perm-subtitle">Matrículas 2026</p>
+            <h1>142</h1>
+        </div>
+
+        <div className="perm-box">
+            <p className="perm-subtitle">Aulas registradas</p>
+            <h1>8</h1>
+        </div>
+
+        <div className="perm-box">
+            <p className="perm-subtitle">Pagos pendientes</p>
+            <h1 style={{ color: '#991b1b' }}>23</h1>
+        </div>
+    </div>
+
+    <h3 className="section-title">Matrículas recientes — 2026</h3>
+
+    <table className="users-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Alumno</th>
+                <th>Aula</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+                <th>Reg. por</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>001</td>
+                <td>Chinga Ramos, Carlos</td>
+                <td>Sec. 1° A</td>
+                <td>10/03/2026</td>
+                <td><span className="status-badge status-active">activa</span></td>
+                <td>secretaria01</td>
+            </tr>
+            <tr>
+                <td>002</td>
+                <td>López Díaz, Lucía</td>
+                <td>Prim. 3° B</td>
+                <td>11/03/2026</td>
+                <td><span className="status-badge status-active">activa</span></td>
+                <td>secretaria01</td>
+            </tr>
+            <tr>
+                <td>003</td>
+                <td>Quispe Meza, Pedro</td>
+                <td>Inic. 3A</td>
+                <td>12/03/2026</td>
+                <td><span className="matric-badge matric-pendiente">pendiente</span></td>
+                <td>secretaria01</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div className="table-footer-note">
+        👁 Vista de lectura — no se permiten modificaciones
+    </div>
+</main>
                 </div>
             </div>
         </div>
