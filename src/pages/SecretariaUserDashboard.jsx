@@ -175,7 +175,12 @@ const SecretariaUserDashboard = () => {
     const [anioHistorico, setAnioHistorico] = useState('2026');
     const [showVerTodosModal, setShowVerTodosModal] = useState(false);
 
-    // --- Crear aula (solo en memoria) ---
+    // --- Cambiar mi clave (solo en memoria) ---
+    const [claveActual, setClaveActual] = useState('');
+    const [claveNueva, setClaveNueva] = useState('');
+    const [claveConfirmar, setClaveConfirmar] = useState('');
+    const [claveError, setClaveError] = useState('');
+    const [claveExito, setClaveExito] = useState(false);
     const [showNewAulaForm, setShowNewAulaForm] = useState(false);
     const [newAula, setNewAula] = useState({ nivel: 'Inicial', grado: '', seccion: '', anio: '2026' });
     const [newAulaError, setNewAulaError] = useState('');
@@ -342,6 +347,36 @@ const SecretariaUserDashboard = () => {
 
         setNewAula({ nivel: 'Inicial', grado: '', seccion: '', anio: newAula.anio });
         setShowNewAulaForm(false);
+    };
+
+    // Valida y simula el cambio de clave (solo en memoria, no llama a ninguna API)
+    const cambiarClave = (e) => {
+        e.preventDefault();
+        setClaveError('');
+        setClaveExito(false);
+
+        if (!claveActual || !claveNueva || !claveConfirmar) {
+            setClaveError('Todos los campos son obligatorios.');
+            return;
+        }
+        if (claveNueva.length < 8) {
+            setClaveError('La nueva contraseña debe tener al menos 8 caracteres.');
+            return;
+        }
+        if (claveNueva !== claveConfirmar) {
+            setClaveError('La nueva contraseña y su confirmación no coinciden.');
+            return;
+        }
+        if (claveNueva === claveActual) {
+            setClaveError('La nueva contraseña debe ser distinta a la actual.');
+            return;
+        }
+
+        setClaveExito(true);
+        setClaveActual('');
+        setClaveNueva('');
+        setClaveConfirmar('');
+        setTimeout(() => setClaveExito(false), 3000);
     };
 
     // --- Derivados de Matrícula ---
@@ -1252,6 +1287,45 @@ const SecretariaUserDashboard = () => {
                                     </button>
                                 </form>
                             )}
+                        </main>
+                    ) : activeTab === 'clave' ? (
+                        <main className="dash-content" style={{ flex: 1 }}>
+                            <h3 className="section-title">Cambiar mi clave</h3>
+
+                            <form onSubmit={cambiarClave} className="perm-box" style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxWidth: '360px' }}>
+                                <input
+                                    type="password"
+                                    placeholder="Contraseña actual"
+                                    value={claveActual}
+                                    onChange={(e) => setClaveActual(e.target.value)}
+                                    style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                />
+                                <input
+                                    type="password"
+                                    placeholder="Nueva contraseña"
+                                    value={claveNueva}
+                                    onChange={(e) => setClaveNueva(e.target.value)}
+                                    style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                />
+                                <input
+                                    type="password"
+                                    placeholder="Confirmar nueva contraseña"
+                                    value={claveConfirmar}
+                                    onChange={(e) => setClaveConfirmar(e.target.value)}
+                                    style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                />
+
+                                {claveError && (
+                                    <p style={{ color: '#dc2626', fontSize: '0.85rem', margin: 0 }}>{claveError}</p>
+                                )}
+                                {claveExito && (
+                                    <p style={{ color: '#16a34a', fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>✓ Clave actualizada correctamente.</p>
+                                )}
+
+                                <button type="submit" className="apply-btn">
+                                    ✓ Cambiar clave
+                                </button>
+                            </form>
                         </main>
                     ) : (
                         <main className="dash-content">
