@@ -470,7 +470,7 @@ const SecretariaUserDashboard = () => {
                                 </div>
 
                                 <div className="field-group">
-                                    <label className="field-label">Alumno (ap. paterno, ap. materno, nombre — sin RUC)</label>
+                                    <label className="field-label">Alumno (ap. paterno, ap. materno, nombre)</label>
                                     <div className="field-with-btn">
                                         <input
                                             type="text"
@@ -478,9 +478,7 @@ const SecretariaUserDashboard = () => {
                                             readOnly
                                             value={`${selectedAlumno.apPaterno} ${selectedAlumno.apMaterno} ${selectedAlumno.nombre}`}
                                         />
-                                        <button className="modal-trigger-btn" type="button" onClick={() => setShowAlumnoModal(true)}>
-                                            <IconSearch /> Modal
-                                        </button>
+                                        
                                     </div>
                                 </div>
 

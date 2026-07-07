@@ -403,7 +403,7 @@ const SuperUserDashboard = () => {
                                         />
                                         <input
                                             type="text"
-                                            placeholder="Número de documento (opcional)"
+                                            placeholder="Número de documento"
                                             value={newDoc}
                                             onChange={(e) => setNewDoc(e.target.value)}
                                             style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
