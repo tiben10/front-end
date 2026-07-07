@@ -545,16 +545,14 @@ const SecretariaUserDashboard = () => {
                                 </div>
 
                                 <div className="field-group">
-                                    <label className="field-label">Alumno (ap. paterno, ap. materno, nombre)</label>
-                                    <div className="field-with-btn">
-                                        <input
-                                            type="text"
-                                            className="readonly-input"
-                                            readOnly
-                                            value={`${selectedAlumno.apPaterno} ${selectedAlumno.apMaterno} ${selectedAlumno.nombre}`}
-                                        />
-                                        
-                                    </div>
+                                    <label className="field-label">Nombre del alumno</label>
+                                    <input
+                                        type="text"
+                                        className="readonly-input"
+                                        placeholder="Ej. Carlos Chinga Ramos"
+                                        value={nombreAlumnoMatricula}
+                                        onChange={(e) => setNombreAlumnoMatricula(e.target.value)}
+                                    />
                                 </div>
 
                                 <div className="field-group">
@@ -564,6 +562,7 @@ const SecretariaUserDashboard = () => {
                                             type="text"
                                             className="readonly-input"
                                             readOnly
+                                            placeholder="Selecciona un aula con el botón Modal"
                                             value={selectedAulaMatricula ? `${selectedAulaMatricula.nivel} ${selectedAulaMatricula.grado} ${selectedAulaMatricula.seccion}` : ''}
                                         />
                                         <button className="modal-trigger-btn" type="button" onClick={() => setShowAulaModal(true)}>
@@ -571,6 +570,49 @@ const SecretariaUserDashboard = () => {
                                         </button>
                                     </div>
                                 </div>
+
+                                {showAulaModal && (
+                                    <div
+                                        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+                                        onClick={() => setShowAulaModal(false)}
+                                    >
+                                        <div
+                                            className="perm-box"
+                                            style={{ background: 'white', width: '420px', maxHeight: '70vh', overflowY: 'auto', padding: '1.25rem' }}
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                                <h3 className="section-title" style={{ margin: 0 }}>Aulas disponibles — {anioMatricula}</h3>
+                                                <button className="icon-btn" onClick={() => setShowAulaModal(false)}>✕</button>
+                                            </div>
+
+                                            {aulasDisponiblesModal.length === 0 ? (
+                                                <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>No hay aulas disponibles para el año {anioMatricula}.</p>
+                                            ) : (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                    {aulasDisponiblesModal.map((aula) => {
+                                                        const info = estadoInfo(aula.estado);
+                                                        return (
+                                                            <button
+                                                                key={aula.id}
+                                                                type="button"
+                                                                className="clickable-row"
+                                                                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', background: 'white', cursor: 'pointer', textAlign: 'left' }}
+                                                                onClick={() => seleccionarAulaModal(aula)}
+                                                            >
+                                                                <span>{aula.nivel} {aula.grado} "{aula.seccion}"</span>
+                                                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                    <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>{aula.alumnos}/{aula.cupo}</span>
+                                                                    <span className={`estado-badge ${info.badgeClass}`}>{info.label}</span>
+                                                                </span>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {aulaMatriculaLlena && (
                                     <div className="warning-banner">
