@@ -4,12 +4,19 @@ import '../Styles/Dashboard.css';
 // --- Datos simulados (mock, solo en memoria) ---
 
 const mockAulas = [
-    { id: 1, nivel: 'Inicial', grado: '3 años', seccion: 'A', alumnos: 20, cupo: 25, estado: 'disponible' },
-    { id: 2, nivel: 'Inicial', grado: '3 años', seccion: 'B', alumnos: 18, cupo: 25, estado: 'disponible' },
-    { id: 3, nivel: 'Primaria', grado: '1°', seccion: 'A', alumnos: 30, cupo: 35, estado: 'casi_llena' },
-    { id: 4, nivel: 'Secundaria', grado: '1°', seccion: 'A', alumnos: 35, cupo: 35, estado: 'llena' },
-    { id: 5, nivel: 'Secundaria', grado: '2°', seccion: 'A', alumnos: 28, cupo: 35, estado: 'eliminada' }
+    { id: 1, nivel: 'Inicial', grado: '3 años', seccion: 'A', alumnos: 20, cupo: 25, estado: 'disponible', anio: '2026' },
+    { id: 2, nivel: 'Inicial', grado: '3 años', seccion: 'B', alumnos: 18, cupo: 25, estado: 'disponible', anio: '2026' },
+    { id: 3, nivel: 'Primaria', grado: '1°', seccion: 'A', alumnos: 30, cupo: 35, estado: 'casi_llena', anio: '2026' },
+    { id: 4, nivel: 'Secundaria', grado: '1°', seccion: 'A', alumnos: 35, cupo: 35, estado: 'llena', anio: '2026' },
+    { id: 5, nivel: 'Secundaria', grado: '2°', seccion: 'A', alumnos: 28, cupo: 35, estado: 'eliminada', anio: '2026' }
 ];
+
+// Calcula el estado de un aula según cuántos alumnos tiene matriculados frente a su cupo
+const calcularEstadoAula = (alumnos, cupo) => {
+    if (alumnos >= cupo) return 'llena';
+    if (alumnos / cupo >= 0.9) return 'casi_llena';
+    return 'disponible';
+};
 
 const mockAlumnosPorAula = {
     1: [
@@ -159,16 +166,23 @@ const tituloSuperiorPorTab = {
 
 const SecretariaUserDashboard = () => {
     const [activeTab, setActiveTab] = useState('matricula');
+    const [aulas, setAulas] = useState(mockAulas);
     const [anioAcademico, setAnioAcademico] = useState('2026');
     const [nivelFiltro, setNivelFiltro] = useState('Todos');
     // Aula seleccionada por defecto: Secundaria 1° A (id 4), igual que en la maqueta
     const [selectedAulaId, setSelectedAulaId] = useState(4);
     const [anioHistorico, setAnioHistorico] = useState('2026');
 
+    // --- Crear aula (solo en memoria) ---
+    const [showNewAulaForm, setShowNewAulaForm] = useState(false);
+    const [newAula, setNewAula] = useState({ nivel: 'Inicial', grado: '', seccion: '', anio: '2026' });
+    const [newAulaError, setNewAulaError] = useState('');
+
     // --- Estado de Matrícula (solo en memoria) ---
     const [anioMatricula, setAnioMatricula] = useState('2026');
+    const [nombreAlumnoMatricula, setNombreAlumnoMatricula] = useState('');
     const [selectedAlumno, setSelectedAlumno] = useState({ apPaterno: 'Chinga', apMaterno: 'Ramos', nombre: 'Carlos' });
-    const [selectedAulaMatriculaId, setSelectedAulaMatriculaId] = useState(4); // Secundaria 1° A, igual que en la maqueta
+    const [selectedAulaMatriculaId, setSelectedAulaMatriculaId] = useState(null);
     const [showAlumnoModal, setShowAlumnoModal] = useState(false);
     const [showAulaModal, setShowAulaModal] = useState(false);
     const [alumnoQuery, setAlumnoQuery] = useState('Chinga');
@@ -275,15 +289,64 @@ const SecretariaUserDashboard = () => {
         setAnioConceptos(anioSiguienteConceptos);
     };
 
-    const aulasFiltradas = mockAulas.filter(a => nivelFiltro === 'Todos' || a.nivel === nivelFiltro);
-    const selectedAula = mockAulas.find(a => a.id === selectedAulaId) || null;
+    const aulasFiltradas = aulas.filter(a => (nivelFiltro === 'Todos' || a.nivel === nivelFiltro) && a.anio === anioAcademico);
+    const selectedAula = aulas.find(a => a.id === selectedAulaId) || null;
     const alumnosDeAula = selectedAula ? (mockAlumnosPorAula[selectedAula.id] || []) : [];
 
+    // Valida y crea una nueva aula (solo en memoria). Respeta la Unique Key compuesta: Año + Nivel + Grado + Sección
+    const crearAula = (e) => {
+        e.preventDefault();
+        setNewAulaError('');
+
+        const gradoLimpio = newAula.grado.trim();
+        const seccionLimpia = newAula.seccion.trim().toUpperCase();
+
+        if (!gradoLimpio) {
+            setNewAulaError('El grado es obligatorio (ej. "1°" o "3 años").');
+            return;
+        }
+        if (!seccionLimpia) {
+            setNewAulaError('La sección es obligatoria (ej. "A").');
+            return;
+        }
+
+        const yaExiste = aulas.some(a =>
+            a.anio === newAula.anio &&
+            a.nivel === newAula.nivel &&
+            a.grado.trim().toLowerCase() === gradoLimpio.toLowerCase() &&
+            a.seccion.toUpperCase() === seccionLimpia
+        );
+        if (yaExiste) {
+            setNewAulaError(`Ya existe un aula ${newAula.nivel} ${gradoLimpio} "${seccionLimpia}" en el año ${newAula.anio}.`);
+            return;
+        }
+
+        const nuevoId = aulas.length > 0 ? Math.max(...aulas.map(a => a.id)) + 1 : 1;
+        const aulaNueva = {
+            id: nuevoId,
+            nivel: newAula.nivel,
+            grado: gradoLimpio,
+            seccion: seccionLimpia,
+            alumnos: 0, // Empieza en 0: sube automáticamente con cada matrícula real
+            cupo: 25, // Cupo por defecto
+            estado: 'disponible',
+            anio: newAula.anio
+        };
+
+        setAulas(prev => [...prev, aulaNueva]);
+        setSelectedAulaId(nuevoId);
+        setAnioAcademico(newAula.anio); // para que se vea de inmediato en el listado
+        setNivelFiltro('Todos');
+
+        setNewAula({ nivel: 'Inicial', grado: '', seccion: '', anio: newAula.anio });
+        setShowNewAulaForm(false);
+    };
+
     // --- Derivados de Matrícula ---
-    const selectedAulaMatricula = mockAulas.find(a => a.id === selectedAulaMatriculaId) || null;
+    const selectedAulaMatricula = aulas.find(a => a.id === selectedAulaMatriculaId) || null;
     const aulaMatriculaLlena = selectedAulaMatricula?.estado === 'llena';
 
-    const matriculaKey = `${selectedAlumno.apPaterno}-${selectedAlumno.apMaterno}-${selectedAlumno.nombre}-${anioMatricula}`.toLowerCase();
+    const matriculaKey = `${nombreAlumnoMatricula.trim().toLowerCase().replace(/\s+/g, '-')}-${anioMatricula}`;
     const pagadosIds = pagosPorMatricula[matriculaKey] || [];
 
     const conceptosDelAnioMatricula = (conceptosPorAnio[anioMatricula] || []).slice().sort((a, b) => a.orden - b.orden);
@@ -325,11 +388,16 @@ const SecretariaUserDashboard = () => {
     });
 
     // Aulas que coinciden con la búsqueda del modal (por nivel, grado o sección)
-    const aulasFiltradasModal = mockAulas.filter(a => {
+    const aulasFiltradasModal = aulas.filter(a => {
         const q = aulaQuery.trim().toLowerCase();
         if (!q) return true;
         return a.nivel.toLowerCase().includes(q) || a.grado.toLowerCase().includes(q) || a.seccion.toLowerCase().includes(q);
     });
+
+    // Aulas disponibles para elegir en el modal de Matrícula: solo del año elegido y que no estén llenas ni eliminadas
+    const aulasDisponiblesModal = aulas.filter(a =>
+        a.anio === anioMatricula && a.estado !== 'llena' && a.estado !== 'eliminada'
+    );
 
     const seleccionarAlumnoModal = (alumno) => {
         setSelectedAlumno(alumno);
@@ -344,12 +412,19 @@ const SecretariaUserDashboard = () => {
         setMatriculaMensaje('');
     };
 
-    // Simula matricular al alumno seleccionado en el aula seleccionada (solo en memoria, no persiste)
+    // Simula matricular al alumno ingresado en el aula seleccionada (solo en memoria, no persiste)
     const matricularAlumno = () => {
-        if (!selectedAlumno || !selectedAulaMatricula) return;
+        if (!nombreAlumnoMatricula.trim() || !selectedAulaMatricula) return;
         if (aulaMatriculaLlena) return;
 
-        setMatriculaMensaje(`✓ ${selectedAlumno.nombre} ${selectedAlumno.apPaterno} matriculado en ${selectedAulaMatricula.nivel} ${selectedAulaMatricula.grado} ${selectedAulaMatricula.seccion} — ${anioMatricula}`);
+        // El aula sube su contador de alumnos y recalcula su estado (disponible / casi llena / llena)
+        setAulas(prev => prev.map(a => {
+            if (a.id !== selectedAulaMatricula.id) return a;
+            const nuevosAlumnos = a.alumnos + 1;
+            return { ...a, alumnos: nuevosAlumnos, estado: calcularEstadoAula(nuevosAlumnos, a.cupo) };
+        }));
+
+        setMatriculaMensaje(`✓ ${nombreAlumnoMatricula.trim()} matriculado en ${selectedAulaMatricula.nivel} ${selectedAulaMatricula.grado} ${selectedAulaMatricula.seccion} — ${anioMatricula}`);
         setTimeout(() => setMatriculaMensaje(''), 3000);
     };
 
@@ -731,10 +806,59 @@ const SecretariaUserDashboard = () => {
                                         </select>
                                     </div>
 
-                                    <button className="btn-primary-outline" type="button">
-                                        + Nueva aula
+                                    <button className="btn-primary-outline" type="button" onClick={() => setShowNewAulaForm(v => !v)}>
+                                        {showNewAulaForm ? 'Cancelar' : '+ Nueva aula'}
                                     </button>
                                 </div>
+
+                                {showNewAulaForm && (
+                                    <form onSubmit={crearAula} className="perm-box" style={{ marginBottom: '1.25rem', display: 'flex', flexWrap: 'wrap', gap: '0.6rem', alignItems: 'center' }}>
+                                        <select
+                                            value={newAula.nivel}
+                                            onChange={(e) => setNewAula({ ...newAula, nivel: e.target.value })}
+                                            style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                        >
+                                            <option value="Inicial">Inicial</option>
+                                            <option value="Primaria">Primaria</option>
+                                            <option value="Secundaria">Secundaria</option>
+                                        </select>
+                                        <input
+                                            type="text"
+                                            placeholder='Grado (ej. "1°" o "3 años")'
+                                            value={newAula.grado}
+                                            onChange={(e) => setNewAula({ ...newAula, grado: e.target.value })}
+                                            required
+                                            style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', width: '160px' }}
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder='Sección (ej. "A")'
+                                            value={newAula.seccion}
+                                            onChange={(e) => setNewAula({ ...newAula, seccion: e.target.value })}
+                                            maxLength={2}
+                                            required
+                                            style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', width: '90px' }}
+                                        />
+                                        <select
+                                            value={newAula.anio}
+                                            onChange={(e) => setNewAula({ ...newAula, anio: e.target.value })}
+                                            style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                        >
+                                            <option value="2026">2026</option>
+                                            <option value="2025">2025</option>
+                                            <option value="2024">2024</option>
+                                        </select>
+                                        <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>Cupo por defecto: 25</span>
+
+                                        {newAulaError && (
+                                            <p style={{ color: '#dc2626', fontSize: '0.85rem', margin: 0, width: '100%' }}>{newAulaError}</p>
+                                        )}
+
+                                        <button type="submit" className="apply-btn" style={{ width: 'auto', background: '#2563eb', color: 'white', border: 'none' }}>
+                                            ✓ Guardar aula
+                                        </button>
+                                    </form>
+                                )}
 
                                 <h3 className="section-title">Listado de aulas — {anioAcademico}</h3>
 
