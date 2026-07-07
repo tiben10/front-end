@@ -167,11 +167,13 @@ const tituloSuperiorPorTab = {
 const SecretariaUserDashboard = () => {
     const [activeTab, setActiveTab] = useState('matricula');
     const [aulas, setAulas] = useState(mockAulas);
+    const [alumnosPorAula, setAlumnosPorAula] = useState(mockAlumnosPorAula);
     const [anioAcademico, setAnioAcademico] = useState('2026');
     const [nivelFiltro, setNivelFiltro] = useState('Todos');
     // Aula seleccionada por defecto: Secundaria 1° A (id 4), igual que en la maqueta
     const [selectedAulaId, setSelectedAulaId] = useState(4);
     const [anioHistorico, setAnioHistorico] = useState('2026');
+    const [showVerTodosModal, setShowVerTodosModal] = useState(false);
 
     // --- Crear aula (solo en memoria) ---
     const [showNewAulaForm, setShowNewAulaForm] = useState(false);
@@ -291,7 +293,7 @@ const SecretariaUserDashboard = () => {
 
     const aulasFiltradas = aulas.filter(a => (nivelFiltro === 'Todos' || a.nivel === nivelFiltro) && a.anio === anioAcademico);
     const selectedAula = aulas.find(a => a.id === selectedAulaId) || null;
-    const alumnosDeAula = selectedAula ? (mockAlumnosPorAula[selectedAula.id] || []) : [];
+    const alumnosDeAula = selectedAula ? (alumnosPorAula[selectedAula.id] || []) : [];
 
     // Valida y crea una nueva aula (solo en memoria). Respeta la Unique Key compuesta: Año + Nivel + Grado + Sección
     const crearAula = (e) => {
@@ -417,12 +419,29 @@ const SecretariaUserDashboard = () => {
         if (!nombreAlumnoMatricula.trim() || !selectedAulaMatricula) return;
         if (aulaMatriculaLlena) return;
 
+        const aulaId = selectedAulaMatricula.id;
+
         // El aula sube su contador de alumnos y recalcula su estado (disponible / casi llena / llena)
         setAulas(prev => prev.map(a => {
-            if (a.id !== selectedAulaMatricula.id) return a;
+            if (a.id !== aulaId) return a;
             const nuevosAlumnos = a.alumnos + 1;
             return { ...a, alumnos: nuevosAlumnos, estado: calcularEstadoAula(nuevosAlumnos, a.cupo) };
         }));
+
+        // El alumno matriculado aparece en la lista de esa aula (pestaña Aulas)
+        setAlumnosPorAula(prev => {
+            const listaActual = prev[aulaId] || [];
+            const siguienteN = listaActual.length > 0 ? Math.max(...listaActual.map(a => a.n)) + 1 : 1;
+            const audCode = `${selectedAulaMatricula.nivel.slice(0, 3).toLowerCase()}${String(aulaId).padStart(2, '0')}`;
+
+            return {
+                ...prev,
+                [aulaId]: [
+                    ...listaActual,
+                    { n: siguienteN, nombre: nombreAlumnoMatricula.trim(), matricula: 'activa', aud: audCode }
+                ]
+            };
+        });
 
         setMatriculaMensaje(`✓ ${nombreAlumnoMatricula.trim()} matriculado en ${selectedAulaMatricula.nivel} ${selectedAulaMatricula.grado} ${selectedAulaMatricula.seccion} — ${anioMatricula}`);
         setTimeout(() => setMatriculaMensaje(''), 3000);
@@ -638,7 +657,7 @@ const SecretariaUserDashboard = () => {
 
                             <aside className="dash-permissions">
                                 <h3 className="section-title">
-                                    Cuotas generadas — {selectedAlumno.nombre} {selectedAlumno.apPaterno} · {anioMatricula}
+                                    Cuotas generadas — {nombreAlumnoMatricula.trim() || 'sin nombre'} · {anioMatricula}
                                 </h3>
 
                                 <table className="quota-table">
@@ -1009,7 +1028,7 @@ const SecretariaUserDashboard = () => {
 
                                         <div className="footer-row">
                                             <span>Mostrando {alumnosDeAula.length} de {selectedAula.alumnos} alumnos</span>
-                                            <button className="ver-todos-btn" type="button">Ver todos</button>
+                                            <button className="ver-todos-btn" type="button" onClick={() => setShowVerTodosModal(true)}>Ver todos</button>
                                         </div>
 
                                         <div className="trazabilidad-box">
@@ -1035,6 +1054,51 @@ const SecretariaUserDashboard = () => {
                                     </>
                                 )}
                             </aside>
+
+                            {showVerTodosModal && selectedAula && (
+                                <div
+                                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+                                    onClick={() => setShowVerTodosModal(false)}
+                                >
+                                    <div
+                                        className="perm-box"
+                                        style={{ background: 'white', width: '480px', maxHeight: '75vh', overflowY: 'auto', padding: '1.25rem' }}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                            <h3 className="section-title" style={{ margin: 0 }}>
+                                                {selectedAula.nivel} {selectedAula.grado} {selectedAula.seccion} — todos los alumnos
+                                            </h3>
+                                            <button className="icon-btn" onClick={() => setShowVerTodosModal(false)}>✕</button>
+                                        </div>
+
+                                        <table className="alumnos-mini-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>#</th>
+                                                    <th>Apellidos y nombre</th>
+                                                    <th>Matríc.</th>
+                                                    <th>Aud.</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {alumnosDeAula.map((al) => (
+                                                    <tr key={al.n}>
+                                                        <td>{al.n}</td>
+                                                        <td>{al.nombre}</td>
+                                                        <td>
+                                                            <span className={`matric-badge ${matriculaBadgeClass(al.matricula)}`}>
+                                                                {al.matricula}
+                                                            </span>
+                                                        </td>
+                                                        <td className="aud-text">{al.aud}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
                         </>
                     ) : activeTab === 'conceptos' ? (
                         <main className="dash-content" style={{ flex: 1 }}>
