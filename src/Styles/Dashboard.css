@@ -590,3 +590,413 @@
     border: 1px dashed #e5e7eb;
     border-radius: 0.5rem;
 }
+
+/* ================= Panel Secretaria — Matrícula ================= */
+
+.field-group {
+    margin-bottom: 1.1rem;
+}
+
+.field-label {
+    display: block;
+    font-size: 0.8rem;
+    color: #6b7280;
+    font-weight: 500;
+    margin-bottom: 0.4rem;
+}
+
+.field-with-btn {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.readonly-input {
+    flex: 1;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    font-size: 1rem;
+    color: #1f2937;
+    background: white;
+}
+
+.readonly-input::placeholder {
+    color: #9ca3af;
+}
+
+.modal-trigger-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0 0.9rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    background: white;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.modal-trigger-btn:hover {
+    background-color: #f9fafb;
+}
+
+.warning-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background-color: #fef3c7;
+    color: #92400e;
+    border-radius: 0.375rem;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 1.1rem;
+}
+
+.matricular-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    width: 100%;
+    padding: 0.65rem;
+    border: none;
+    border-radius: 0.375rem;
+    background-color: #1f2937;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.matricular-btn:hover {
+    background-color: #111827;
+}
+
+.matricular-btn:disabled {
+    background-color: #d1d5db;
+    color: #6b7280;
+    cursor: not-allowed;
+}
+
+.quota-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.quota-table th {
+    text-align: left;
+    color: #9ca3af;
+    font-weight: 500;
+    font-size: 0.72rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.quota-table td {
+    padding: 0.55rem 0.25rem;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.quota-pagar-btn {
+    padding: 0.2rem 0.65rem;
+    border: 1px solid #d1d5db;
+    border-radius: 9999px;
+    background: white;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.quota-pagar-btn:hover {
+    background-color: #f3f4f6;
+}
+
+.quota-note {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.85rem;
+}
+
+/* Modales de búsqueda */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+}
+
+.modal-box {
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    max-width: 420px;
+    padding: 1.25rem;
+}
+
+.modal-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+}
+
+.modal-search-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.modal-search-input {
+    flex: 1;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    font-size: 0.95rem;
+}
+
+.modal-search-btn {
+    width: 42px;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    background: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sel-btn {
+    padding: 0.2rem 0.6rem;
+    border: 1px solid #d1d5db;
+    border-radius: 9999px;
+    background: white;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.sel-btn:hover {
+    background-color: #eff6ff;
+    border-color: #93c5fd;
+}
+
+.modal-row-selected {
+    background-color: #dbeafe !important;
+}
+
+.modal-footer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.85rem;
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.cerrar-btn {
+    padding: 0.4rem 0.9rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    background: white;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.cerrar-btn:hover {
+    background-color: #f9fafb;
+}
+
+/* ================= Panel Secretaria — Pagos ================= */
+
+.badge-anio-actual {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 9999px;
+    background-color: #dbeafe;
+    color: #1d4ed8;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-left: 0.6rem;
+}
+
+.pagos-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.pagos-table th {
+    text-align: left;
+    color: #9ca3af;
+    font-weight: 600;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.pagos-table td {
+    padding: 0.7rem 0.4rem;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+}
+
+.pagos-row-deuda {
+    background-color: #eff6ff;
+    border-left: 3px solid #2563eb;
+}
+
+.pagos-row-deuda td:first-child {
+    padding-left: calc(0.4rem - 3px);
+}
+
+.pagos-row-bloqueado td {
+    color: #9ca3af;
+}
+
+.estado-pagado-pill {
+    padding: 0.15rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background-color: #dcfce7;
+    color: #15803d;
+}
+
+.estado-deuda-pill {
+    padding: 0.15rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background-color: #fee2e2;
+    color: #b91c1c;
+}
+
+.estado-bloqueado-pill {
+    padding: 0.15rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background-color: #f3f4f6;
+    color: #9ca3af;
+}
+
+.recibo-link {
+    background: none;
+    border: none;
+    color: #2563eb;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0;
+}
+
+.recibo-link:hover {
+    text-decoration: underline;
+}
+
+.pagar-btn-solid {
+    padding: 0.35rem 1rem;
+    border: none;
+    border-radius: 0.375rem;
+    background-color: #2563eb;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.pagar-btn-solid:hover {
+    background-color: #1d4ed8;
+}
+
+.bloqueado-hint {
+    font-size: 0.7rem;
+    color: #9ca3af;
+    font-style: italic;
+}
+
+.pagos-footer-note {
+    font-size: 0.78rem;
+    color: #9ca3af;
+    font-style: italic;
+    margin-top: 0.85rem;
+}
+
+.historial-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 0.85rem;
+}
+
+.historial-row:last-child {
+    border-bottom: none;
+}
+
+.badge-pendiente-anio {
+    padding: 0.15rem 0.6rem;
+    border-radius: 9999px;
+    background-color: #fee2e2;
+    color: #b91c1c;
+    font-size: 0.72rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.badge-al-dia {
+    padding: 0.15rem 0.6rem;
+    border-radius: 9999px;
+    background-color: #dcfce7;
+    color: #15803d;
+    font-size: 0.72rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.boleta-box-label {
+    font-size: 0.72rem;
+    color: #9ca3af;
+    margin: 0 0 0.35rem 0;
+}
+
+.boleta-input-display {
+    width: 100%;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    background-color: #f9fafb;
+    color: #374151;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.boleta-hint-text {
+    font-size: 0.75rem;
+    color: #6b7280;
+    line-height: 1.4;
+}
+
+.mockup-caption {
+    font-size: 0.78rem;
+    color: #9ca3af;
+    font-style: italic;
+    margin-top: 1.25rem;
+}
