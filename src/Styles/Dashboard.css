@@ -1000,3 +1000,52 @@
     font-style: italic;
     margin-top: 1.25rem;
 }
+.sidebar-item.disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.sidebar-item.disabled:hover {
+    background: transparent;
+}
+/* ================= Panel Director — Registros ================= */
+
+.director-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.director-summary-card {
+    background: #ffffff;
+    border: 1px solid #f3f4f6;
+    border-radius: 0.75rem;
+    padding: 1rem 1.2rem;
+}
+
+.director-summary-card p {
+    margin: 0 0 0.4rem 0;
+    font-size: 0.85rem;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.director-summary-card h1 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.director-danger-number {
+    color: #991b1b !important;
+}
+/* Ajuste para Director: solo sidebar + contenido */
+.director-body {
+    grid-template-columns: 220px 1fr;
+}
+
+.director-body .dash-content {
+    border-right: none;
+}
