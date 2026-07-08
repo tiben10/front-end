@@ -61,7 +61,7 @@ const ProfileCard = ({ profile }) => {
                 </div>
 
                 <div className="button-group">
-                    <button type="button" className="btn btn-outline">Registrar</button>
+                    
                     <button type="button" className={`btn ${profile.theme.btnClass}`} onClick={handleLogin}>
                         <LoginIcon /> Ingresar
                     </button>

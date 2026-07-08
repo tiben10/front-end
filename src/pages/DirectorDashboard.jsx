@@ -30,6 +30,11 @@ const cambiarClave = () => {
         return;
     }
 
+    if (claveNueva.length < 8) {
+            setClaveError('La nueva contraseña debe tener al menos 8 caracteres.');
+            return;
+        }
+
     if (claveNueva !== confirmarClave) {
         setClaveError('La nueva contraseña y la confirmación no coinciden.');
         return;
