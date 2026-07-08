@@ -5,7 +5,7 @@ import '../Styles/Dashboard.css'
 import PermissionTree from './PermissionTree'; // <-- Importamos el componente del árbol
 import { decodeJwt } from '../services/jwt';
 import { logout } from '../services/authService';
-import { listarUsuarios, crearUsuario as crearUsuarioApi, eliminarUsuario as eliminarUsuarioApi, cambiarPassword } from '../services/usuarioService';
+import { listarUsuarios, crearUsuario as crearUsuarioApi, eliminarUsuario as eliminarUsuarioApi, cambiarPassword, restablecerPassword } from '../services/usuarioService';
 import { obtenerPermisosPorRol, aplicarPermisos } from '../services/permisoService';
 import { rolService, funcionalidadService } from '../services/catalogoService';
 import { listarAuditoriaReciente, obtenerFiltrosAuditoria, buscarAuditoria } from '../services/auditoriaService';
@@ -49,6 +49,11 @@ const SuperUserDashboard = () => {
     const [ownConfirmPass, setOwnConfirmPass] = useState('');
     const [ownPassError, setOwnPassError] = useState('');
     const [ownPassSuccess, setOwnPassSuccess] = useState(false);
+
+    const [targetUserId, setTargetUserId] = useState('');
+    const [targetNewPass, setTargetNewPass] = useState('');
+    const [targetPassError, setTargetPassError] = useState('');
+    const [targetPassSuccess, setTargetPassSuccess] = useState(false);
 
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [newUsuario, setNewUsuario] = useState('');
@@ -373,6 +378,34 @@ const SuperUserDashboard = () => {
         }
     };
 
+    // Solo el Superusuario puede hacer esto: no requiere la contraseña actual del usuario afectado
+    const handleResetUserPassword = async (e) => {
+        e.preventDefault();
+        setTargetPassError('');
+        setTargetPassSuccess(false);
+
+        if (!targetUserId) {
+            setTargetPassError('Selecciona un usuario.');
+            return;
+        }
+        if (targetNewPass.length < 6) {
+            setTargetPassError('La nueva contraseña debe tener al menos 6 caracteres.');
+            return;
+        }
+
+        try {
+            await restablecerPassword(Number(targetUserId), targetNewPass);
+            setTargetPassSuccess(true);
+            setTargetNewPass('');
+            setTimeout(() => setTargetPassSuccess(false), 2500);
+        } catch (err) {
+            const msg = typeof err.response?.data === 'string'
+                ? err.response.data
+                : 'No se pudo restablecer la contraseña.';
+            setTargetPassError(msg);
+        }
+    };
+
     return (
         <div className="dash-wrapper">
             <div className="dash-title-top">SUPERUSUARIO — GESTIÓN DE USUARIOS Y PERMISOS</div>
@@ -640,6 +673,40 @@ const SuperUserDashboard = () => {
                                     )}
                                     {ownPassSuccess && (
                                         <p style={{ color: '#16a34a', fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>✓ Clave actualizada correctamente.</p>
+                                    )}
+                                </form>
+                            </div>
+
+                            <div className="perm-box">
+                                <p className="perm-subtitle">Restablecer clave de otro usuario</p>
+                                <form onSubmit={handleResetUserPassword} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxWidth: '360px' }}>
+                                    <select
+                                        value={targetUserId}
+                                        onChange={(e) => setTargetUserId(e.target.value)}
+                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                    >
+                                        <option value="">Selecciona un usuario...</option>
+                                        {usuarios.filter(u => u.estado).map(u => (
+                                            <option key={u.idUsuario} value={u.idUsuario}>
+                                                {u.usuario} ({u.rol?.nombreRol?.toLowerCase()})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        type="password"
+                                        placeholder="Nueva contraseña para el usuario"
+                                        value={targetNewPass}
+                                        onChange={(e) => setTargetNewPass(e.target.value)}
+                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                    />
+                                    <button type="submit" className="apply-btn">
+                                        ✓ Restablecer clave
+                                    </button>
+                                    {targetPassError && (
+                                        <p style={{ color: '#dc2626', fontSize: '0.85rem', margin: 0 }}>{targetPassError}</p>
+                                    )}
+                                    {targetPassSuccess && (
+                                        <p style={{ color: '#16a34a', fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>✓ Clave restablecida correctamente.</p>
                                     )}
                                 </form>
                             </div>
