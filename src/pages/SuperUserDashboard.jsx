@@ -1,117 +1,151 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Swal from 'sweetalert2';
 import '../Styles/Dashboard.css'
 import PermissionTree from './PermissionTree'; // <-- Importamos el componente del árbol
+import { decodeJwt } from '../services/jwt';
+import { logout } from '../services/authService';
+import { listarUsuarios, crearUsuario as crearUsuarioApi, eliminarUsuario as eliminarUsuarioApi, cambiarPassword } from '../services/usuarioService';
+import { obtenerPermisosPorRol, aplicarPermisos } from '../services/permisoService';
+import { rolService, funcionalidadService } from '../services/catalogoService';
+import { listarAuditoriaReciente, obtenerFiltrosAuditoria, buscarAuditoria } from '../services/auditoriaService';
+import { obtenerParametros } from '../services/parametroService';
+
+const PERMISOS_VACIOS = { ver: false, crear: false, editar: false, eliminar: false, imprimir: false };
 
 const SuperUserDashboard = () => {
+    const navigate = useNavigate();
     const [usuarios, setUsuarios] = useState([]);
-    const [allFuncs, setAllFuncs] = useState([]); // <-- Nuevo estado para las funcionalidades
+    const [roles, setRoles] = useState([]);
+    const [allFuncs, setAllFuncs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selectedUser, setSelectedUser] = useState(null);
     const [activeTab, setActiveTab] = useState('usuarios');
+    const [currentUsername, setCurrentUsername] = useState('admin');
 
-    // --- Trazabilidad / Auditoría: registro automático de acciones (solo en memoria) ---
     const [auditLog, setAuditLog] = useState([]);
+    const [loadingAudit, setLoadingAudit] = useState(false);
 
-    // --- Parámetros del sistema (clave-valor, editable) ---
-    const [parametros, setParametros] = useState([
-        { id: 1, nombre: 'Máximo de vacantes por aula', valor: '30' },
-        { id: 2, nombre: 'Mínimo de caracteres para contraseña', valor: '8' },
-        { id: 3, nombre: 'Expiración de sesión (minutos)', valor: '30' }
-    ]);
-    const [editingParamId, setEditingParamId] = useState(null);
-    const [editingParamValue, setEditingParamValue] = useState('');
+    const [showAuditModal, setShowAuditModal] = useState(false);
+    const [auditFiltrosOpciones, setAuditFiltrosOpciones] = useState({ modulos: [], operaciones: [], tablas: [] });
+    const [auditFiltros, setAuditFiltros] = useState({ usuario: '', operacion: '', modulo: '', tabla: '', desde: '', hasta: '' });
+    const [auditPage, setAuditPage] = useState(0);
+    const [auditResultados, setAuditResultados] = useState({ content: [], totalElements: 0, totalPages: 0, number: 0 });
+    const [loadingAuditBusqueda, setLoadingAuditBusqueda] = useState(false);
+    const AUDIT_PAGE_SIZE = 10;
 
-    // --- Permisos por ROL (Permisos tab): idRol/nombreRol -> { idFuncionalidad: {...} } ---
-    const [permissionsByRole, setPermissionsByRole] = useState({});
-    const [selectedRoleForPerms, setSelectedRoleForPerms] = useState('DIRECTOR');
+    const [parametrosSistema, setParametrosSistema] = useState(null);
+    const [loadingParametros, setLoadingParametros] = useState(false);
+
+    const [permissionsByRole, setPermissionsByRole] = useState({}); 
+    const [loadingRolePerms, setLoadingRolePerms] = useState(false);
+    const [selectedRoleForPerms, setSelectedRoleForPerms] = useState(null);
     const [roleSavedMessage, setRoleSavedMessage] = useState(false);
-
-    // --- Permisos por USUARIO (pestaña Usuarios): idUsuario -> { idFuncionalidad: {...} } ---
-    // Se inicializan copiando los permisos del ROL del usuario la primera vez que se selecciona.
-    const [permissionsByUser, setPermissionsByUser] = useState({});
     const [savedMessage, setSavedMessage] = useState(false);
 
-    // --- Cambiar mi propia clave (Superusuario) ---
     const [ownCurrentPass, setOwnCurrentPass] = useState('');
     const [ownNewPass, setOwnNewPass] = useState('');
     const [ownConfirmPass, setOwnConfirmPass] = useState('');
     const [ownPassError, setOwnPassError] = useState('');
     const [ownPassSuccess, setOwnPassSuccess] = useState(false);
 
-    // --- Cambiar la clave de otro usuario (reseteo administrativo) ---
-    const [targetUserId, setTargetUserId] = useState('');
-    const [targetNewPass, setTargetNewPass] = useState('');
-    const [targetPassError, setTargetPassError] = useState('');
-    const [targetPassSuccess, setTargetPassSuccess] = useState(false);
-
-    // --- Crear usuario (simulado, solo en memoria) ---
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [newUsuario, setNewUsuario] = useState('');
     const [newDoc, setNewDoc] = useState('');
-    const [newRolId, setNewRolId] = useState(3); // por defecto Secretaria
+    const [newPassword, setNewPassword] = useState('');
+    const [newRolId, setNewRolId] = useState('');
     const [createError, setCreateError] = useState('');
 
-    const rolesDisponibles = [
-        { idRol: 2, nombreRol: 'DIRECTOR' },
-        { idRol: 3, nombreRol: 'SECRETARIA' }
-    ];
+    const rolesDisponibles = roles.filter(r => r.nombreRol?.toUpperCase() !== 'SUPERUSUARIO' && r.estado);
 
-    // Carga inicial de Usuarios y Funcionalidades
     useEffect(() => {
-        const mockUsuarios = [
-            { idUsuario: 1, usuario: 'admin', doc: null, estado: true, rol: { idRol: 1, nombreRol: 'SUPERUSUARIO' } },
-            { idUsuario: 2, usuario: 'Juan Ríos', doc: '47112233', estado: true, rol: { idRol: 2, nombreRol: 'DIRECTOR' } },
-            { idUsuario: 3, usuario: 'María Torres', doc: '52009871', estado: true, rol: { idRol: 3, nombreRol: 'SECRETARIA' } },
-            { idUsuario: 4, usuario: 'Luis Paz', doc: '31007654', estado: false, rol: { idRol: 3, nombreRol: 'SECRETARIA' } }
-        ];
+        const token = localStorage.getItem('token');
+        const claims = token ? decodeJwt(token) : null;
+        if (claims?.sub) setCurrentUsername(claims.sub);
 
-        const mockFuncs = [
-            { idFuncionalidad: 1, nombre: 'Matriculas' },
-            { idFuncionalidad: 2, nombre: 'Pagos' },
-            { idFuncionalidad: 3, nombre: 'Alumnos' },
-            { idFuncionalidad: 4, nombre: 'Aulas' },
-            { idFuncionalidad: 5, nombre: 'Conceptos' },
-            { idFuncionalidad: 6, nombre: 'Usuarios' },
-            { idFuncionalidad: 7, nombre: 'Reportes Avanzados' }
-        ];
+        const cargarDatos = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const [usuariosData, rolesData, funcsData] = await Promise.all([
+                    listarUsuarios(),
+                    rolService.listar(),
+                    funcionalidadService.listar()
+                ]);
+                setUsuarios(usuariosData);
+                setRoles(rolesData);
+                setAllFuncs(funcsData);
+            } catch (err) {
+                console.error(err);
+                setError('No se pudo cargar la información desde el servidor.');
+            } finally {
+                setLoading(false);
+            }
+        };
 
-        setUsuarios(mockUsuarios);
-        setAllFuncs(mockFuncs);
-        setLoading(false);
+        cargarDatos();
     }, []);
 
-    // Inicializa el mapa de permisos por Rol (Director/Secretaria) una sola vez, todo en false por defecto
     useEffect(() => {
-        if (allFuncs.length === 0) return;
-        setPermissionsByRole(prev => {
-            const roles = ['DIRECTOR', 'SECRETARIA'];
-            const faltantes = roles.filter(r => !prev[r]);
-            if (faltantes.length === 0) return prev;
+        if (rolesDisponibles.length === 0) return;
+        if (!selectedRoleForPerms) setSelectedRoleForPerms(rolesDisponibles[0].idRol);
+        if (!newRolId) setNewRolId(rolesDisponibles[0].idRol);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [roles]);
 
-            const next = { ...prev };
-            faltantes.forEach(rol => {
-                const map = {};
-                allFuncs.forEach(func => {
-                    map[func.idFuncionalidad] = { ver: false, crear: false, editar: false, eliminar: false, imprimir: false };
-                });
-                next[rol] = map;
+    const cargarPermisosDeRol = useCallback(async (idRol) => {
+        if (!idRol || allFuncs.length === 0) return;
+        setLoadingRolePerms(true);
+        try {
+            const data = await obtenerPermisosPorRol(idRol);
+            const mapa = {};
+            allFuncs.forEach(func => {
+                mapa[func.idFuncionalidad] = { ...PERMISOS_VACIOS };
             });
-            return next;
-        });
+            data.forEach(rf => {
+                mapa[rf.funcionalidad.idFuncionalidad] = {
+                    ver: !!rf.ver,
+                    crear: !!rf.crear,
+                    editar: !!rf.editar,
+                    eliminar: !!rf.eliminar,
+                    imprimir: !!rf.imprimir
+                };
+            });
+            setPermissionsByRole(prev => ({ ...prev, [idRol]: mapa }));
+        } catch (err) {
+            console.error(err);
+            Swal.fire('Error', 'No se pudieron cargar los permisos de ese rol.', 'error');
+        } finally {
+            setLoadingRolePerms(false);
+        }
     }, [allFuncs]);
 
-    // Permisos del rol actualmente seleccionado en la pestaña "Permisos" (atajo de lectura)
-    const rolePermissions = permissionsByRole[selectedRoleForPerms] || {};
+    useEffect(() => {
+        if (!selectedRoleForPerms) return;
+        if (permissionsByRole[selectedRoleForPerms]) return;
+        cargarPermisosDeRol(selectedRoleForPerms);
+    }, [selectedRoleForPerms, permissionsByRole, cargarPermisosDeRol]);
 
-    // Toggle de un permiso para el ROL seleccionado (afecta a TODOS los usuarios de ese rol)
-    const handleToggleRole = (funcId, action = 'ver') => {
+    useEffect(() => {
+        if (!selectedUser) return;
+        const idRol = selectedUser.rol?.idRol;
+        if (!idRol || selectedUser.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO') return;
+        if (permissionsByRole[idRol]) return;
+        cargarPermisosDeRol(idRol);
+    }, [selectedUser, permissionsByRole, cargarPermisosDeRol]);
+
+    const rolePermissions = permissionsByRole[selectedRoleForPerms] || {};
+    const userPermissions = selectedUser ? (permissionsByRole[selectedUser.rol?.idRol] || {}) : {};
+
+    const handleTogglePermission = (idRol, funcId, action = 'ver') => {
+        if (!idRol) return;
         setPermissionsByRole(prev => {
-            const rolePerms = prev[selectedRoleForPerms] || {};
-            const currentFuncPerms = rolePerms[funcId] || { ver: false, crear: false, editar: false, eliminar: false, imprimir: false };
+            const rolePerms = prev[idRol] || {};
+            const currentFuncPerms = rolePerms[funcId] || { ...PERMISOS_VACIOS };
             return {
                 ...prev,
-                [selectedRoleForPerms]: {
+                [idRol]: {
                     ...rolePerms,
                     [funcId]: {
                         ...currentFuncPerms,
@@ -122,62 +156,31 @@ const SuperUserDashboard = () => {
         });
     };
 
-    // Solo simula el guardado de permisos por rol: no llama a ninguna API.
-    const applyRolePermissions = () => {
-        setRoleSavedMessage(true);
-        setTimeout(() => setRoleSavedMessage(false), 2000);
-        logAction('Editar', 'Permisos', `Actualizó los permisos del rol ${selectedRoleForPerms.toLowerCase()}`);
+    const handleToggleRole = (funcId, action = 'ver') => handleTogglePermission(selectedRoleForPerms, funcId, action);
+    const handleToggleUser = (funcId, action = 'ver') => handleTogglePermission(selectedUser?.rol?.idRol, funcId, action);
+
+    const guardarPermisosDeRol = async (idRol) => {
+        const permisosDelRol = permissionsByRole[idRol] || {};
+        const permisos = allFuncs.map(func => ({
+            idFuncionalidad: func.idFuncionalidad,
+            ...(permisosDelRol[func.idFuncionalidad] || PERMISOS_VACIOS)
+        }));
+        await aplicarPermisos(idRol, permisos);
     };
 
-    // Al seleccionar un usuario en la pestaña "Usuarios": si es la primera vez, copia los permisos de su ROL como punto de partida.
-    // Si ya se había tocado antes en esta sesión, se respeta lo que quedó marcado para ese usuario.
-    useEffect(() => {
-        if (!selectedUser || allFuncs.length === 0) return;
-        const rolNombre = selectedUser.rol?.nombreRol?.toUpperCase();
-        if (rolNombre === 'SUPERUSUARIO') return;
-
-        setPermissionsByUser(prev => {
-            if (prev[selectedUser.idUsuario]) return prev; // ya existe, no lo pisamos
-            const base = permissionsByRole[rolNombre] || {};
-            const copia = {};
-            allFuncs.forEach(func => {
-                copia[func.idFuncionalidad] = { ...(base[func.idFuncionalidad] || { ver: false, crear: false, editar: false, eliminar: false, imprimir: false }) };
-            });
-            return { ...prev, [selectedUser.idUsuario]: copia };
-        });
-    }, [selectedUser, allFuncs, permissionsByRole]);
-
-    // Permisos del usuario actualmente seleccionado en "Usuarios" (atajo de lectura)
-    const userPermissions = selectedUser ? (permissionsByUser[selectedUser.idUsuario] || {}) : {};
-
-    // Toggle de un permiso para el USUARIO seleccionado (solo afecta a ese usuario, no a todo el rol)
-    const handleToggleUser = (funcId, action = 'ver') => {
-        if (!selectedUser) return;
-        setPermissionsByUser(prev => {
-            const userPerms = prev[selectedUser.idUsuario] || {};
-            const currentFuncPerms = userPerms[funcId] || { ver: false, crear: false, editar: false, eliminar: false, imprimir: false };
-            return {
-                ...prev,
-                [selectedUser.idUsuario]: {
-                    ...userPerms,
-                    [funcId]: {
-                        ...currentFuncPerms,
-                        [action]: !currentFuncPerms[action]
-                    }
-                }
-            };
-        });
+    const applyUserPermissions = async () => {
+        if (!selectedUser?.rol?.idRol) return;
+        try {
+            await guardarPermisosDeRol(selectedUser.rol.idRol);
+            setSavedMessage(true);
+            setTimeout(() => setSavedMessage(false), 2000);
+        } catch (err) {
+            console.error(err);
+            Swal.fire('Error', 'No se pudieron guardar los permisos.', 'error');
+        }
     };
 
-    // Solo simula el guardado de permisos por usuario: no llama a ninguna API.
-    const applyUserPermissions = () => {
-        setSavedMessage(true);
-        setTimeout(() => setSavedMessage(false), 2000);
-        logAction('Editar', 'Permisos', `Actualizó los permisos del usuario "${selectedUser.usuario}"`);
-    };
-
-    // Crea un usuario nuevo SOLO en memoria (no llama a ninguna API, no persiste al recargar)
-    const crearUsuario = (e) => {
+    const crearUsuario = async (e) => {
         e.preventDefault();
         setCreateError('');
 
@@ -186,49 +189,58 @@ const SuperUserDashboard = () => {
             setCreateError('El nombre de usuario es obligatorio.');
             return;
         }
-
-        // Validación Unique Key: no puede repetirse el nombre de usuario (comparación sin distinguir mayúsculas)
-        const yaExiste = usuarios.some(u => u.usuario.trim().toLowerCase() === usuarioLimpio.toLowerCase());
-        if (yaExiste) {
-            setCreateError(`Ya existe un usuario con el nombre "${usuarioLimpio}".`);
+        if (!newPassword || newPassword.length < 6) {
+            setCreateError('La contraseña debe tener al menos 6 caracteres.');
+            return;
+        }
+        if (!newRolId) {
+            setCreateError('Selecciona un rol.');
             return;
         }
 
-        const rolSeleccionado = rolesDisponibles.find(r => r.idRol === Number(newRolId));
-        const nuevoId = usuarios.length > 0 ? Math.max(...usuarios.map(u => u.idUsuario)) + 1 : 1;
+        try {
+            const creado = await crearUsuarioApi({
+                usuario: usuarioLimpio,
+                doc: newDoc.trim() || null,
+                password: newPassword,
+                idRol: Number(newRolId)
+            });
 
-        const nuevoUsuario = {
-            idUsuario: nuevoId,
-            usuario: usuarioLimpio,
-            doc: newDoc.trim() || null,
-            estado: true,
-            rol: rolSeleccionado
-        };
-
-        setUsuarios(prev => [...prev, nuevoUsuario]);
-        logAction('Crear', 'Usuarios', `Creó al usuario "${usuarioLimpio}" con rol ${rolSeleccionado.nombreRol.toLowerCase()}`);
-
-        // Reset del formulario
-        setNewUsuario('');
-        setNewDoc('');
-        setNewRolId(3);
-        setShowCreateForm(false);
+            setUsuarios(prev => [...prev, creado]);
+            setNewUsuario('');
+            setNewDoc('');
+            setNewPassword('');
+            setNewRolId(rolesDisponibles[0]?.idRol || '');
+            setShowCreateForm(false);
+        } catch (err) {
+            const msg = typeof err.response?.data === 'string'
+                ? err.response.data
+                : (err.response?.data?.message || 'No se pudo crear el usuario.');
+            setCreateError(msg);
+        }
     };
 
-    // Elimina lógicamente a un usuario (solo cambia estado en memoria, no borra el registro ni llama a backend)
-    const eliminarUsuario = (user) => {
+    const eliminarUsuario = async (user) => {
         const esSuperUsuario = user.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO';
-        if (esSuperUsuario || !user.estado) return; // bloqueado o ya eliminado
+        if (esSuperUsuario || !user.estado) return;
 
-        setUsuarios(prev => prev.map(u =>
-            u.idUsuario === user.idUsuario ? { ...u, estado: false } : u
-        ));
-        logAction('Eliminar', 'Usuarios', `Eliminó (lógicamente) al usuario "${user.usuario}"`);
-
-        // Si el usuario eliminado estaba seleccionado, quitamos la selección
-        if (selectedUser?.idUsuario === user.idUsuario) {
-            setSelectedUser(null);
+        try {
+            await eliminarUsuarioApi(user.idUsuario);
+            setUsuarios(prev => prev.map(u =>
+                u.idUsuario === user.idUsuario ? { ...u, estado: false } : u
+            ));
+            if (selectedUser?.idUsuario === user.idUsuario) {
+                setSelectedUser(null);
+            }
+        } catch (err) {
+            console.error(err);
+            Swal.fire('Error', 'No se pudo eliminar el usuario.', 'error');
         }
+    };
+
+        const handleLogout = () => {
+        logout();
+        navigate('/');
     };
 
     const getRoleBadgeClass = (nombreRol) => {
@@ -240,43 +252,95 @@ const SuperUserDashboard = () => {
         }
     };
 
-    // Agrega un registro al historial de trazabilidad (solo en memoria, el más reciente primero)
-    const logAction = (accion, modulo, detalle) => {
-        setAuditLog(prev => [
-            {
-                id: prev.length + 1,
-                usuario: 'admin',
-                fecha: new Date().toLocaleString('es-PE'),
-                accion,
-                modulo,
-                detalle
-            },
-            ...prev
-        ]);
+    const cargarAuditoria = useCallback(async () => {
+        setLoadingAudit(true);
+        try {
+            const data = await listarAuditoriaReciente();
+            setAuditLog(data);
+        } catch (err) {
+            console.error(err);
+            Swal.fire('Error', 'No se pudo cargar la trazabilidad.', 'error');
+        } finally {
+            setLoadingAudit(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (activeTab === 'trazabilidad') cargarAuditoria();
+    }, [activeTab, cargarAuditoria]);
+
+    const buscarAuditoriaCompleta = useCallback(async (page = 0) => {
+        setLoadingAuditBusqueda(true);
+        try {
+            const data = await buscarAuditoria({
+                usuario: auditFiltros.usuario || undefined,
+                operacion: auditFiltros.operacion || undefined,
+                modulo: auditFiltros.modulo || undefined,
+                tabla: auditFiltros.tabla || undefined,
+                desde: auditFiltros.desde || undefined,
+                hasta: auditFiltros.hasta || undefined,
+                page,
+                size: AUDIT_PAGE_SIZE
+            });
+            setAuditResultados(data);
+            setAuditPage(page);
+        } catch (err) {
+            console.error(err);
+            Swal.fire('Error', 'No se pudo buscar en la auditoría.', 'error');
+        } finally {
+            setLoadingAuditBusqueda(false);
+        }
+    }, [auditFiltros]);
+
+    const abrirAuditoriaCompleta = async () => {
+        setShowAuditModal(true);
+        if (auditFiltrosOpciones.modulos.length === 0) {
+            try {
+                const opciones = await obtenerFiltrosAuditoria();
+                setAuditFiltrosOpciones(opciones);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+        buscarAuditoriaCompleta(0);
     };
 
-    // Abre el modo edición para un parámetro específico
-    const startEditParam = (param) => {
-        setEditingParamId(param.id);
-        setEditingParamValue(param.valor);
+    const handleAuditFiltroChange = (campo, valor) => {
+        setAuditFiltros(prev => ({ ...prev, [campo]: valor }));
     };
 
-    // Guarda el nuevo valor del parámetro en memoria y lo registra en Trazabilidad
-    const saveParam = (param) => {
-        const valorLimpio = editingParamValue.trim();
-        if (!valorLimpio) return;
-
-        setParametros(prev => prev.map(p =>
-            p.id === param.id ? { ...p, valor: valorLimpio } : p
-        ));
-        logAction('Editar', 'Parámetros', `Cambió "${param.nombre}" de "${param.valor}" a "${valorLimpio}"`);
-
-        setEditingParamId(null);
-        setEditingParamValue('');
+    const verDetalleAuditoria = (entry) => {
+        Swal.fire({
+            title: `Detalle #${entry.codAuditoria}`,
+            html: `<div style="text-align:left; font-size:0.85rem;">
+                <p><b>Tabla:</b> ${entry.tablaAfectada} (registro ${entry.codigoRegistro})</p>
+                <p><b>Valor anterior:</b></p>
+                <pre style="white-space:pre-wrap;background:#f3f4f6;padding:0.5rem;border-radius:0.375rem;">${entry.valorAnterior || '—'}</pre>
+                <p><b>Valor nuevo:</b></p>
+                <pre style="white-space:pre-wrap;background:#f3f4f6;padding:0.5rem;border-radius:0.375rem;">${entry.valorNuevo || '—'}</pre>
+                <p><b>IP origen:</b> ${entry.ipOrigen || '—'}</p>
+            </div>`
+        });
     };
 
-    // Cambia mi propia clave (Superusuario). Solo valida en memoria, no llama a ningún backend.
-    const handleChangeOwnPassword = (e) => {
+    const cargarParametros = useCallback(async () => {
+        setLoadingParametros(true);
+        try {
+            const data = await obtenerParametros();
+            setParametrosSistema(data);
+        } catch (err) {
+            console.error(err);
+            Swal.fire('Error', 'No se pudieron cargar los parámetros del sistema.', 'error');
+        } finally {
+            setLoadingParametros(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (activeTab === 'parametros' && !parametrosSistema) cargarParametros();
+    }, [activeTab, parametrosSistema, cargarParametros]);
+
+    const handleChangeOwnPassword = async (e) => {
         e.preventDefault();
         setOwnPassError('');
         setOwnPassSuccess(false);
@@ -285,8 +349,8 @@ const SuperUserDashboard = () => {
             setOwnPassError('Todos los campos son obligatorios.');
             return;
         }
-        if (ownNewPass.length < 8) {
-            setOwnPassError('La nueva contraseña debe tener al menos 8 caracteres.');
+        if (ownNewPass.length < 6) {
+            setOwnPassError('La nueva contraseña debe tener al menos 6 caracteres.');
             return;
         }
         if (ownNewPass !== ownConfirmPass) {
@@ -294,35 +358,19 @@ const SuperUserDashboard = () => {
             return;
         }
 
-        setOwnPassSuccess(true);
-        setOwnCurrentPass('');
-        setOwnNewPass('');
-        setOwnConfirmPass('');
-        setTimeout(() => setOwnPassSuccess(false), 2500);
-        logAction('Editar', 'Cambiar Clave', 'Cambió su propia contraseña (Superusuario)');
-    };
-
-    // Resetea la clave de otro usuario seleccionado en el combo. Solo simulado en memoria.
-    const handleResetUserPassword = (e) => {
-        e.preventDefault();
-        setTargetPassError('');
-        setTargetPassSuccess(false);
-
-        if (!targetUserId) {
-            setTargetPassError('Selecciona un usuario.');
-            return;
+        try {
+            await cambiarPassword({ passwordActual: ownCurrentPass, passwordNueva: ownNewPass });
+            setOwnPassSuccess(true);
+            setOwnCurrentPass('');
+            setOwnNewPass('');
+            setOwnConfirmPass('');
+            setTimeout(() => setOwnPassSuccess(false), 2500);
+        } catch (err) {
+            const msg = typeof err.response?.data === 'string'
+                ? err.response.data
+                : 'No se pudo cambiar la contraseña.';
+            setOwnPassError(msg);
         }
-        if (targetNewPass.length < 8) {
-            setTargetPassError('La nueva contraseña debe tener al menos 8 caracteres.');
-            return;
-        }
-
-        setTargetPassSuccess(true);
-        setTargetNewPass('');
-        setTimeout(() => setTargetPassSuccess(false), 2500);
-
-        const targetUser = usuarios.find(u => u.idUsuario === Number(targetUserId));
-        logAction('Editar', 'Cambiar Clave', `Restableció la contraseña del usuario "${targetUser?.usuario || targetUserId}"`);
     };
 
     return (
@@ -337,9 +385,13 @@ const SuperUserDashboard = () => {
                     </div>
                     <div className="dash-header-right">
                         <span className="badge-su">SU</span>
-                        <span className="user-name">admin</span>
+                        <span className="user-name">{currentUsername}</span>
                         <span className="user-lock"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> no eliminable</span>
                     </div>
+                    <button className="logout-btn" onClick={handleLogout} title="Cerrar sesión">
+                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                            Cerrar sesión
+                        </button>
                 </header>
 
                 <div className="dash-body">
@@ -350,13 +402,6 @@ const SuperUserDashboard = () => {
                         >
                             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                             Usuarios
-                        </button>
-                        <button
-                            className={`sidebar-item ${activeTab === 'permisos' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('permisos')}
-                        >
-                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                            Permisos
                         </button>
                         <button
                             className={`sidebar-item ${activeTab === 'clave' ? 'active' : ''}`}
@@ -403,9 +448,17 @@ const SuperUserDashboard = () => {
                                         />
                                         <input
                                             type="text"
-                                            placeholder="Número de documento"
+                                            placeholder="Número de documento (DNI, opcional)"
                                             value={newDoc}
                                             onChange={(e) => setNewDoc(e.target.value)}
+                                            style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                        />
+                                        <input
+                                            type="password"
+                                            placeholder="Contraseña (mín. 6 caracteres)"
+                                            value={newPassword}
+                                            onChange={(e) => setNewPassword(e.target.value)}
+                                            required
                                             style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
                                         />
                                         <select
@@ -420,6 +473,9 @@ const SuperUserDashboard = () => {
                                         <button type="submit" className="apply-btn" style={{ background: '#2563eb', color: 'white', border: 'none' }}>
                                             ✓ Crear usuario
                                         </button>
+                                        {createError && (
+                                            <p style={{ color: '#dc2626', fontSize: '0.85rem', margin: 0 }}>{createError}</p>
+                                        )}
                                     </form>
                                 )}
 
@@ -515,12 +571,19 @@ const SuperUserDashboard = () => {
                                                 <p style={{ fontSize: '0.8rem', color: '#6b7280', fontStyle: 'italic' }}>
                                                     El Superusuario tiene acceso total y no puede modificarse.
                                                 </p>
+                                            ) : loadingRolePerms && !permissionsByRole[selectedUser.rol?.idRol] ? (
+                                                <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>Cargando permisos...</p>
                                             ) : (
-                                                <PermissionTree
-                                                    functionalities={allFuncs}
-                                                    permissions={userPermissions}
-                                                    onToggle={handleToggleUser}
-                                                />
+                                                <>
+                                                    <p style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '-0.4rem' }}>
+                                                        Estos permisos aplican a todo el rol "{selectedUser.rol?.nombreRol?.toLowerCase()}", no solo a este usuario.
+                                                    </p>
+                                                    <PermissionTree
+                                                        functionalities={allFuncs}
+                                                        permissions={userPermissions}
+                                                        onToggle={handleToggleUser}
+                                                    />
+                                                </>
                                             )}
 
                                             <button
@@ -533,7 +596,7 @@ const SuperUserDashboard = () => {
 
                                             {savedMessage && (
                                                 <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#16a34a', fontWeight: 600 }}>
-                                                    ✓ Permisos actualizados para {selectedUser.usuario}
+                                                    ✓ Permisos actualizados para el rol {selectedUser.rol?.nombreRol?.toLowerCase()}
                                                 </p>
                                             )}
                                         </div>
@@ -541,50 +604,6 @@ const SuperUserDashboard = () => {
                                 )}
                             </aside>
                         </>
-                    ) : activeTab === 'permisos' ? (
-                        <main className="dash-content" style={{ flex: 1 }}>
-                            <h3 className="section-title">Permisos por Rol</h3>
-                            <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '-0.5rem', marginBottom: '1rem' }}>
-                                Los permisos se asignan por Rol: afectan a todos los usuarios que tengan ese rol.
-                            </p>
-
-                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-                                {['DIRECTOR', 'SECRETARIA'].map(rol => (
-                                    <button
-                                        key={rol}
-                                        onClick={() => setSelectedRoleForPerms(rol)}
-                                        className={`role-badge ${getRoleBadgeClass(rol)}`}
-                                        style={{
-                                            cursor: 'pointer',
-                                            border: selectedRoleForPerms === rol ? '2px solid #1f2937' : '2px solid transparent',
-                                            fontWeight: 600
-                                        }}
-                                    >
-                                        {rol.charAt(0) + rol.slice(1).toLowerCase()}
-                                    </button>
-                                ))}
-                            </div>
-
-                            <div className="perm-box">
-                                <p className="perm-subtitle">Módulos habilitados para {selectedRoleForPerms.charAt(0) + selectedRoleForPerms.slice(1).toLowerCase()}</p>
-
-                                <PermissionTree
-                                    functionalities={allFuncs}
-                                    permissions={rolePermissions}
-                                    onToggle={handleToggleRole}
-                                />
-
-                                <button className="apply-btn" onClick={applyRolePermissions}>
-                                    ✓ Aplicar cambios
-                                </button>
-
-                                {roleSavedMessage && (
-                                    <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#16a34a', fontWeight: 600 }}>
-                                        ✓ Permisos actualizados para el rol {selectedRoleForPerms.toLowerCase()}
-                                    </p>
-                                )}
-                            </div>
-                        </main>
                     ) : activeTab === 'clave' ? (
                         <main className="dash-content">
                             <h3 className="section-title">Cambiar Clave</h3>
@@ -624,50 +643,23 @@ const SuperUserDashboard = () => {
                                     )}
                                 </form>
                             </div>
-
-                            <div className="perm-box">
-                                <p className="perm-subtitle">Restablecer clave de otro usuario</p>
-                                <form onSubmit={handleResetUserPassword} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxWidth: '360px' }}>
-                                    <select
-                                        value={targetUserId}
-                                        onChange={(e) => setTargetUserId(e.target.value)}
-                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-                                    >
-                                        <option value="">Selecciona un usuario...</option>
-                                        {usuarios.filter(u => u.estado).map(u => (
-                                            <option key={u.idUsuario} value={u.idUsuario}>
-                                                {u.usuario} ({u.rol?.nombreRol?.toLowerCase()})
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <input
-                                        type="password"
-                                        placeholder="Nueva contraseña para el usuario"
-                                        value={targetNewPass}
-                                        onChange={(e) => setTargetNewPass(e.target.value)}
-                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-                                    />
-                                    <button type="submit" className="apply-btn">
-                                        ✓ Restablecer clave
-                                    </button>
-                                    {targetPassError && (
-                                        <p style={{ color: '#dc2626', fontSize: '0.85rem', margin: 0 }}>{targetPassError}</p>
-                                    )}
-                                    {targetPassSuccess && (
-                                        <p style={{ color: '#16a34a', fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>✓ Clave restablecida correctamente.</p>
-                                    )}
-                                </form>
-                            </div>
                         </main>
                     ) : activeTab === 'trazabilidad' ? (
                         <main className="dash-content" style={{ flex: 1 }}>
-                            <h3 className="section-title">Trazabilidad</h3>
-                            <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '-0.5rem', marginBottom: '1rem' }}>
-                                Registro de solo lectura: quién hizo qué acción y cuándo. Se genera automáticamente con lo que hagas en el panel.
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                                <h3 className="section-title" style={{ margin: 0 }}>Trazabilidad</h3>
+                                <button className="apply-btn" style={{ width: 'auto', padding: '0.4rem 0.9rem' }} onClick={abrirAuditoriaCompleta}>
+                                    🔍 Auditoría completa
+                                </button>
+                            </div>
+                            <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0', marginBottom: '1rem' }}>
+                                Últimos 10 registros. Para buscar por usuario, operación, módulo, tabla o rango de fechas, usa "Auditoría completa".
                             </p>
 
-                            {auditLog.length === 0 ? (
-                                <p style={{ fontStyle: 'italic', color: '#6b7280' }}>Aún no hay acciones registradas en esta sesión.</p>
+                            {loadingAudit ? (
+                                <p style={{ fontStyle: 'italic', color: '#6b7280' }}>Cargando trazabilidad...</p>
+                            ) : auditLog.length === 0 ? (
+                                <p style={{ fontStyle: 'italic', color: '#6b7280' }}>Aún no hay acciones registradas.</p>
                             ) : (
                                 <table className="users-table">
                                     <thead>
@@ -681,12 +673,15 @@ const SuperUserDashboard = () => {
                                     </thead>
                                     <tbody>
                                         {auditLog.map(entry => (
-                                            <tr key={entry.id}>
-                                                <td>{entry.usuario}</td>
-                                                <td className="doc-text">{entry.fecha}</td>
-                                                <td>{entry.accion}</td>
+                                            <tr key={entry.codAuditoria}>
+                                                <td>{entry.usuario?.usuario || '—'}</td>
+                                                <td className="doc-text">{entry.fechaHora ? new Date(entry.fechaHora).toLocaleString('es-PE') : '—'}</td>
+                                                <td>{entry.operacion}</td>
                                                 <td>{entry.modulo}</td>
-                                                <td style={{ fontSize: '0.85rem' }}>{entry.detalle}</td>
+                                                <td style={{ fontSize: '0.85rem' }}>
+                                                    {entry.tablaAfectada}
+                                                    {entry.valorNuevo ? ` → ${entry.valorNuevo}` : ''}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -701,52 +696,36 @@ const SuperUserDashboard = () => {
                         <main className="dash-content" style={{ flex: 1 }}>
                             <h3 className="section-title">Parámetros del sistema</h3>
                             <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '-0.5rem', marginBottom: '1rem' }}>
-                                Valores de configuración usados en las validaciones del sistema (ej. vacantes máximas en Matrícula).
+                                Solo lectura: estos valores no viven en una tabla de configuración genérica, sino que reflejan
+                                reglas que ya existen.
                             </p>
 
-                            <table className="users-table">
-                                <thead>
-                                    <tr>
-                                        <th>Parámetro</th>
-                                        <th>Valor</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {parametros.map(param => (
-                                        <tr key={param.id}>
-                                            <td>{param.nombre}</td>
-                                            <td>
-                                                {editingParamId === param.id ? (
-                                                    <input
-                                                        type="text"
-                                                        value={editingParamValue}
-                                                        onChange={(e) => setEditingParamValue(e.target.value)}
-                                                        style={{ padding: '0.3rem 0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', width: '100px' }}
-                                                        autoFocus
-                                                    />
-                                                ) : (
-                                                    param.valor
-                                                )}
-                                            </td>
-                                            <td className="action-cell">
-                                                {editingParamId === param.id ? (
-                                                    <>
-                                                        <button className="icon-btn" title="Guardar" onClick={() => saveParam(param)}>✓</button>{' '}
-                                                        <button className="icon-btn" title="Cancelar" onClick={() => setEditingParamId(null)}>✕</button>
-                                                    </>
-                                                ) : (
-                                                    <button className="icon-btn" title="Editar" onClick={() => startEditParam(param)}>✏️</button>
-                                                )}
-                                            </td>
+                            {loadingParametros || !parametrosSistema ? (
+                                <p style={{ fontStyle: 'italic', color: '#6b7280' }}>Cargando parámetros...</p>
+                            ) : (
+                                <table className="users-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Parámetro</th>
+                                            <th>Valor</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-
-                            <div className="table-footer-note">
-                                ⓘ Los cambios de parámetros quedan registrados en Trazabilidad.
-                            </div>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Mínimo de caracteres para contraseña</td>
+                                            <td>{parametrosSistema.minLongitudPassword}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Expiración de sesión (minutos)</td>
+                                            <td>{parametrosSistema.expiracionSesionMinutos}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Vacantes máximas por aula</td>
+                                            <td style={{ fontSize: '0.85rem' }}>{parametrosSistema.vacantesPorAulaInfo}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            )}
                         </main>
                     ) : (
                         <main className="dash-content">
@@ -756,6 +735,133 @@ const SuperUserDashboard = () => {
                     )}
                 </div>
             </div>
+
+            {showAuditModal && (
+                <div className="audit-modal-overlay" onClick={() => setShowAuditModal(false)}>
+                    <div className="audit-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="audit-modal-header">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                                <strong>AUDITORÍA — TRAZABILIDAD COMPLETA</strong>
+                            </div>
+                            <button className="icon-btn" title="Cerrar" onClick={() => setShowAuditModal(false)}>✕</button>
+                        </div>
+
+                        <div className="audit-filters">
+                            <div>
+                                <label>Usuario</label>
+                                <select value={auditFiltros.usuario} onChange={(e) => handleAuditFiltroChange('usuario', e.target.value)}>
+                                    <option value="">Todos</option>
+                                    {usuarios.map(u => (
+                                        <option key={u.idUsuario} value={u.usuario}>{u.usuario}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label>Tipo de Operación</label>
+                                <select value={auditFiltros.operacion} onChange={(e) => handleAuditFiltroChange('operacion', e.target.value)}>
+                                    <option value="">Todos</option>
+                                    {auditFiltrosOpciones.operaciones.map(op => (
+                                        <option key={op} value={op}>{op}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label>Módulo</label>
+                                <select value={auditFiltros.modulo} onChange={(e) => handleAuditFiltroChange('modulo', e.target.value)}>
+                                    <option value="">Todos</option>
+                                    {auditFiltrosOpciones.modulos.map(m => (
+                                        <option key={m} value={m}>{m}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label>Tabla</label>
+                                <select value={auditFiltros.tabla} onChange={(e) => handleAuditFiltroChange('tabla', e.target.value)}>
+                                    <option value="">Todas</option>
+                                    {auditFiltrosOpciones.tablas.map(t => (
+                                        <option key={t} value={t}>{t}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label>Desde</label>
+                                <input type="date" value={auditFiltros.desde} onChange={(e) => handleAuditFiltroChange('desde', e.target.value)} />
+                            </div>
+                            <div>
+                                <label>Hasta</label>
+                                <input type="date" value={auditFiltros.hasta} onChange={(e) => handleAuditFiltroChange('hasta', e.target.value)} />
+                            </div>
+                            <button className="apply-btn" style={{ width: 'auto', alignSelf: 'end' }} onClick={() => buscarAuditoriaCompleta(0)}>
+                                🔍 Buscar
+                            </button>
+                        </div>
+
+                        <div className="audit-table-wrap">
+                            {loadingAuditBusqueda ? (
+                                <p style={{ fontStyle: 'italic', color: '#6b7280' }}>Buscando...</p>
+                            ) : auditResultados.content.length === 0 ? (
+                                <p style={{ fontStyle: 'italic', color: '#6b7280' }}>No se encontraron registros con esos filtros.</p>
+                            ) : (
+                                <table className="users-table">
+                                    <thead>
+                                        <tr>
+                                            <th>N°</th>
+                                            <th>Fecha y Hora</th>
+                                            <th>Usuario</th>
+                                            <th>Módulo</th>
+                                            <th>Tabla</th>
+                                            <th>Operación</th>
+                                            <th>Registro Afectado</th>
+                                            <th>Detalle</th>
+                                            <th>IP Origen</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {auditResultados.content.map((entry, idx) => (
+                                            <tr key={entry.codAuditoria}>
+                                                <td>{auditResultados.number * AUDIT_PAGE_SIZE + idx + 1}</td>
+                                                <td className="doc-text">{entry.fechaHora ? new Date(entry.fechaHora).toLocaleString('es-PE') : '—'}</td>
+                                                <td>{entry.usuario?.usuario || '—'}</td>
+                                                <td>{entry.modulo}</td>
+                                                <td>{entry.tablaAfectada}</td>
+                                                <td>{entry.operacion}</td>
+                                                <td>{entry.tablaAfectada} #{entry.codigoRegistro}</td>
+                                                <td>
+                                                    <button className="icon-btn" onClick={() => verDetalleAuditoria(entry)}>Ver</button>
+                                                </td>
+                                                <td className="doc-text">{entry.ipOrigen}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+
+                        <div className="audit-pagination">
+                            <span>
+                                Mostrando página {auditResultados.number + 1} de {Math.max(auditResultados.totalPages, 1)} — {auditResultados.totalElements} registros en total
+                            </span>
+                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                <button
+                                    className="icon-btn"
+                                    disabled={auditPage === 0}
+                                    onClick={() => buscarAuditoriaCompleta(auditPage - 1)}
+                                >
+                                    ‹ Anterior
+                                </button>
+                                <button
+                                    className="icon-btn"
+                                    disabled={auditPage + 1 >= auditResultados.totalPages}
+                                    onClick={() => buscarAuditoriaCompleta(auditPage + 1)}
+                                >
+                                    Siguiente ›
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

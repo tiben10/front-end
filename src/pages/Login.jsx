@@ -77,9 +77,7 @@ const ProfileCard = ({ profile }) => {
 
 const LoginSelection = () => {
     const profilesData = [
-        { id: 1, initials: 'SU', role: 'Superusuario', access: 'acceso total', theme: { headerClass: 'su-header', badgeClass: 'su-badge', btnClass: 'su-btn' } },
-        { id: 2, initials: 'DI', role: 'Director', access: 'solo lectura', theme: { headerClass: 'di-header', badgeClass: 'di-badge', btnClass: 'di-btn' } },
-        { id: 3, initials: 'SE', role: 'Secretaria', access: 'operaciones', theme: { headerClass: 'se-header', badgeClass: 'se-badge', btnClass: 'se-btn' } }
+        { id: 1, initials: 'AC', role: 'LOGIN', access: 'Inicio de Sesion', theme: { headerClass: 'su-header', badgeClass: 'su-badge', btnClass: 'su-btn' } },
     ];
 
     return (
