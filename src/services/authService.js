@@ -1,24 +1,29 @@
-import axios from 'axios';
+import api from './api';
+import { decodeJwt } from './jwt';
 
-const API_URL = 'http://localhost:8081/api/auth';
+export const login = async (usuario, password) => {
+    const response = await api.post('/auth/login', { username: usuario, password });
+    const { token } = response.data;
 
-export const login = async (username, password) => {
-    try {
-        const response = await axios.post(`${API_URL}/login`, {
-            username,
-            password
-        });
-        
-        if (response.data && response.data.token) {
-            localStorage.setItem('token', response.data.token);
-        }
-        
-        return response.data;
-    } catch (error) {
-        throw error;
-    }
+    localStorage.setItem('token', token);
+
+    const claims = decodeJwt(token);
+    // El backend mete "rol" e "idUsuario" en el JWT (ver JwtUtils.generarToken)
+    if (claims?.rol) localStorage.setItem('role', claims.rol);
+
+    return claims;
 };
 
 export const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('role');
+};
+
+export const getRole = () => localStorage.getItem('role');
+export const isAuthenticated = () => !!localStorage.getItem('token');
+
+// Requiere sesión ya iniciada (Authorization header ya viaja por el interceptor)
+export const generar2FA = async () => {
+    const response = await api.post('/auth/generar-2fa');
+    return response.data; // { secret, qrUrl }
 };

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import '../Styles/Login.css';
 import { useNavigate } from 'react-router-dom';
+import { login } from '../services/authService';
+import Swal from 'sweetalert2';
 
 const LoginIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -12,23 +14,30 @@ const LoginIcon = () => (
 
 const ProfileCard = ({ profile }) => {
     const navigate = useNavigate();
-    
-    // 1. Estados definidos DENTRO de la tarjeta para que cada una maneje sus inputs
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handleLogin = () => {
-        // Ya no llama al backend, genera un token falso localmente
-        localStorage.setItem('token', 'fake-token-' + profile.initials);
-        // Guarda qué rol "inició sesión" (SU, DI o SE) por si luego se necesita
-        localStorage.setItem('role', profile.initials);
-        // Redirige al panel correspondiente según el perfil elegido
-        if (profile.initials === 'DI') {
-            navigate('/director-dashboard');
-        } else if (profile.initials === 'SE') {
-            navigate('/secretaria-dashboard');
-        } else {
-            navigate('/dashboard');
+    const handleLogin = async () => {
+        if (!username || !password) {
+            Swal.fire('Faltan datos', 'Ingresa usuario y contraseña.', 'warning');
+            return;
+        }
+        setLoading(true);
+        try {
+            const claims = await login(username, password);
+            const rol = claims?.rol?.toUpperCase();
+
+            if (rol === 'DIRECTOR') navigate('/director-dashboard');
+            else if (rol === 'SECRETARIA') navigate('/secretaria-dashboard');
+            else navigate('/dashboard'); // SUPERUSUARIO
+        } catch (error) {
+            const msg = (error.response?.status === 401 || error.response?.status === 403)
+                ? 'Usuario o contraseña incorrectos.'
+                : 'No se pudo conectar con el servidor.';
+            Swal.fire('Error', msg, 'error');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -42,28 +51,23 @@ const ProfileCard = ({ profile }) => {
 
                 <div className="form-group">
                     <label className="form-label">Usuario</label>
-                    <input 
-                        type="text" 
-                        className="form-input"
-                        value={username} 
-                        onChange={(e) => setUsername(e.target.value)} 
-                    />
+                    <input type="text" className="form-input" value={username} onChange={(e) => setUsername(e.target.value)} />
                 </div>
 
                 <div className="form-group">
                     <label className="form-label">Contraseña</label>
-                    <input 
-                        type="password" 
+                    <input
+                        type="password"
                         className="form-input"
-                        value={password} 
-                        onChange={(e) => setPassword(e.target.value)} 
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                     />
                 </div>
 
                 <div className="button-group">
-                    <button type="button" className="btn btn-outline">Registrar</button>
-                    <button type="button" className={`btn ${profile.theme.btnClass}`} onClick={handleLogin}>
-                        <LoginIcon /> Ingresar
+                    <button type="button" className={`btn ${profile.theme.btnClass}`} onClick={handleLogin} disabled={loading}>
+                        <LoginIcon /> {loading ? 'Ingresando...' : 'Ingresar'}
                     </button>
                 </div>
             </div>
@@ -72,7 +76,7 @@ const ProfileCard = ({ profile }) => {
 };
 
 const LoginSelection = () => {
-    const profilesData = [ /* ... tu configuración de perfiles ... */ 
+    const profilesData = [
         { id: 1, initials: 'SU', role: 'Superusuario', access: 'acceso total', theme: { headerClass: 'su-header', badgeClass: 'su-badge', btnClass: 'su-btn' } },
         { id: 2, initials: 'DI', role: 'Director', access: 'solo lectura', theme: { headerClass: 'di-header', badgeClass: 'di-badge', btnClass: 'di-btn' } },
         { id: 3, initials: 'SE', role: 'Secretaria', access: 'operaciones', theme: { headerClass: 'se-header', badgeClass: 'se-badge', btnClass: 'se-btn' } }

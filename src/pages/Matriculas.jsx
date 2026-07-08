@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
-import api from '../services/api';
+import { listarMatriculas, registrarMatricula } from '../services/matriculaService';
 
 const Matriculas = () => {
     const [matriculas, setMatriculas] = useState([]);
-    const [form, setForm] = useState({ codAlumno: '', codAula: '' });
+    const [form, setForm] = useState({ codAlumno: '', codAula: '', codigoTotp: '' });
+    const [loading, setLoading] = useState(false);
 
     const cargarMatriculas = async () => {
         try {
-            const response = await api.get('/matriculas/lista'); // Necesitarás este GET en Java luego
-            setMatriculas(response.data);
+            const data = await listarMatriculas();
+            setMatriculas(data);
         } catch (error) {
-            console.error("Aún no existe el endpoint GET en Java", error);
+            console.error('Error al listar matrículas', error);
         }
     };
 
@@ -21,36 +22,44 @@ const Matriculas = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoading(true);
         try {
-            // Aquí consumimos el endpoint transaccional que ya tienes listo en Java
-            await api.post(`/matriculas/registrar?codAlumno=${form.codAlumno}&codAula=${form.codAula}`);
-            
+            await registrarMatricula(form.codAlumno, form.codAula, form.codigoTotp);
             Swal.fire('¡Matrícula Exitosa!', 'Se generaron las deudas y cuotas del alumno automáticamente.', 'success');
-            setForm({ codAlumno: '', codAula: '' });
+            setForm({ codAlumno: '', codAula: '', codigoTotp: '' });
             cargarMatriculas();
         } catch (error) {
-            Swal.fire('Error', 'Hubo un problema. Verifica que el alumno y aula existan.', 'error');
+            const msg = error.response?.data || 'Hubo un problema al matricular.';
+            Swal.fire('Error', typeof msg === 'string' ? msg : 'No se pudo matricular.', 'error');
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
         <div>
             <h2 className="text-primary border-bottom pb-2 mb-4">📝 Registro de Matrículas</h2>
-            
+
             <div className="card shadow-sm mb-5">
                 <div className="card-header bg-dark text-white">Ejecutar Nueva Matrícula</div>
                 <div className="card-body">
                     <form onSubmit={handleSubmit} className="row g-3 align-items-center">
-                        <div className="col-md-5">
+                        <div className="col-md-4">
                             <label className="form-label fw-bold">ID del Alumno</label>
-                            <input type="number" name="codAlumno" value={form.codAlumno} onChange={handleChange} className="form-control" placeholder="Ej: 1" required />
+                            <input type="number" name="codAlumno" value={form.codAlumno} onChange={handleChange} className="form-control" required />
                         </div>
-                        <div className="col-md-5">
+                        <div className="col-md-4">
                             <label className="form-label fw-bold">ID del Aula</label>
-                            <input type="number" name="codAula" value={form.codAula} onChange={handleChange} className="form-control" placeholder="Ej: 1" required />
+                            <input type="number" name="codAula" value={form.codAula} onChange={handleChange} className="form-control" required />
                         </div>
-                        <div className="col-md-2 mt-5">
-                            <button type="submit" className="btn btn-success w-100 fw-bold">Matricular</button>
+                        <div className="col-md-4">
+                            <label className="form-label fw-bold">Código 2FA (Google Authenticator)</label>
+                            <input type="text" name="codigoTotp" value={form.codigoTotp} onChange={handleChange} className="form-control" maxLength={6} required />
+                        </div>
+                        <div className="col-12 text-end">
+                            <button type="submit" className="btn btn-success fw-bold" disabled={loading}>
+                                {loading ? 'Matriculando...' : 'Matricular'}
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -67,14 +76,14 @@ const Matriculas = () => {
                 </thead>
                 <tbody>
                     {matriculas.length === 0 ? (
-                        <tr><td colSpan="4" className="py-4">No hay matrículas registradas (O falta el endpoint GET en Java).</td></tr>
+                        <tr><td colSpan="4" className="py-4">No hay matrículas registradas.</td></tr>
                     ) : (
                         matriculas.map(mat => (
                             <tr key={mat.codMatricula}>
                                 <td>{mat.codMatricula}</td>
-                                <td>{mat.alumno?.nombre} {mat.alumno?.apellido}</td>
-                                <td>{mat.aula?.grado} {mat.aula?.seccion}</td>
-                                <td><span className="badge bg-success">ACTIVA</span></td>
+                                <td>{mat.alumno?.nombres} {mat.alumno?.apellidoPaterno}</td>
+                                <td>{mat.aula?.grado?.nombre} "{mat.aula?.seccion}"</td>
+                                <td><span className={`badge bg-${mat.estado === 'activa' ? 'success' : 'secondary'}`}>{mat.estado}</span></td>
                             </tr>
                         ))
                     )}
