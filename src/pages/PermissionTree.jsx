@@ -4,7 +4,7 @@ const PermissionTree = ({ functionalities, permissions, onToggle }) => {
     return (
         <div className="checkbox-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '1rem', marginBottom: '1.5rem' }}>
             {functionalities.map(func => {
-                // Consideramos el módulo "habilitado" si al menos tiene el permiso de "ver" activo
+                
                 const isEnabled = permissions[func.idFuncionalidad]?.ver || false;
                 
                 return (

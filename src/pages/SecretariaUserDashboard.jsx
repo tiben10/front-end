@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import '../Styles/Dashboard.css';
 
-// --- Datos simulados (mock, solo en memoria) ---
+
 
 const mockAulas = [
     { id: 1, nivel: 'Inicial', grado: '3 años', seccion: 'A', alumnos: 20, cupo: 25, estado: 'disponible', anio: '2026' },
@@ -11,7 +11,7 @@ const mockAulas = [
     { id: 5, nivel: 'Secundaria', grado: '2°', seccion: 'A', alumnos: 28, cupo: 35, estado: 'eliminada', anio: '2026' }
 ];
 
-// Calcula el estado de un aula según cuántos alumnos tiene matriculados frente a su cupo
+
 const calcularEstadoAula = (alumnos, cupo) => {
     if (alumnos >= cupo) return 'llena';
     if (alumnos / cupo >= 0.9) return 'casi_llena';
@@ -57,7 +57,7 @@ const mockAlumnosGeneral = [
     { id: 4, codigo: 'AL0004', documento: '78562341', tipoDoc: 'DNI', nombres: 'Ana', apPaterno: 'Ramos', apMaterno: 'Cruz', nivel: 'Secundaria', grado: '1° A', estado: 'trasladada' }
 ];
 
-// --- Iconos (SVG en línea, estilo consistente con el resto del panel) ---
+
 
 const IconMatricula = () => (
     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
@@ -93,7 +93,7 @@ const IconPersonPlus = () => (
     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>
 );
 
-// --- Helpers de presentación ---
+
 
 const estadoInfo = (estado) => {
     switch (estado) {
@@ -114,7 +114,7 @@ const matriculaBadgeClass = (estado) => {
     }
 };
 
-// --- Conceptos / Tarifario (mock, solo en memoria, por año) ---
+
 const mockConceptosPorAnio = {
     '2026': [
         { id: 1, nombre: 'Matrícula', tipo: 'Fijo', monto: 200, orden: 1, obligatorio: true },
@@ -127,7 +127,7 @@ const mockConceptosPorAnio = {
 
 const tiposConcepto = ['Fijo', 'Mensual', 'Opcional'];
 
-// --- Maestro de alumnos para el buscador de Matrícula (mock, solo en memoria) ---
+
 const mockAlumnosMaestro = [
     { apPaterno: 'Chinga', apMaterno: 'Ramos', nombre: 'Carlos' },
     { apPaterno: 'Chinga', apMaterno: 'López', nombre: 'Ana' },
@@ -137,7 +137,7 @@ const mockAlumnosMaestro = [
     { apPaterno: 'Torres', apMaterno: 'Nina', nombre: 'María' }
 ];
 
-// --- Pagos: cuotas del año a consultar (mock, solo en memoria) ---
+
 const mockCuotasPagos = [
     { id: 1, concepto: 'Matrícula', monto: 200, orden: 1 },
     { id: 2, concepto: 'Marzo', monto: 100, orden: 2 },
@@ -146,7 +146,7 @@ const mockCuotasPagos = [
     { id: 5, concepto: 'Junio', monto: 100, orden: 5 }
 ];
 
-// --- Historial de años anteriores por alumno (mock, solo en memoria) ---
+
 const mockHistorialAlumnos = {
     'chinga-ramos-carlos': [
         { anio: 2025, estado: 'pendiente', detalle: 'S/ 100 pendiente', mes: 'Diciembre', monto: 100 },
@@ -160,7 +160,7 @@ const historialPorDefecto = [
     { anio: 2023, estado: 'al_dia', detalle: 'Al día' }
 ];
 
-// Texto de la barra superior: cambia según la pestaña activa
+
 const tituloSuperiorPorTab = {
     matricula: 'SECRETARÍA — PANEL PRINCIPAL (TODAS LAS OPERACIONES)',
     pagos: 'SECRETARÍA — PAGOS',
@@ -181,7 +181,7 @@ const SecretariaUserDashboard = () => {
     const [anioHistorico, setAnioHistorico] = useState('2026');
     const [showVerTodosModal, setShowVerTodosModal] = useState(false);
 
-    // --- Alumnos (solo en memoria): selección de aula para ver sus alumnos guardados ---
+    
     const [anioAlumnos, setAnioAlumnos] = useState('2026');
     const [selectedAulaAlumnosId, setSelectedAulaAlumnosId] = useState(null);
     const [alumnosGeneral, setAlumnosGeneral] = useState(mockAlumnosGeneral);
@@ -198,7 +198,7 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
     fechaNacimiento: ''
 });
 
-    // --- Cambiar mi clave (solo en memoria) ---
+
     const [claveActual, setClaveActual] = useState('');
     const [claveNueva, setClaveNueva] = useState('');
     const [claveConfirmar, setClaveConfirmar] = useState('');
@@ -208,7 +208,7 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
     const [newAula, setNewAula] = useState({ nivel: 'Inicial', grado: '', seccion: '', anio: '2026' });
     const [newAulaError, setNewAulaError] = useState('');
 
-    // --- Estado de Matrícula (solo en memoria) ---
+    
     const [anioMatricula, setAnioMatricula] = useState('2026');
     const [nombreAlumnoMatricula, setNombreAlumnoMatricula] = useState('');
     const [alumnoMatriculaSeleccionado, setAlumnoMatriculaSeleccionado] = useState(false);
@@ -216,23 +216,23 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
     const [showAlumnoModal, setShowAlumnoModal] = useState(false);
     const [showAulaModal, setShowAulaModal] = useState(false);
     const [aulaQuery, setAulaQuery] = useState('');
-    // Cuotas ya pagadas por matrícula (alumno+año): { "chinga-ramos-carlos-2026": [1, 2] }
+    
     const [pagosPorMatricula, setPagosPorMatricula] = useState({
         'chinga-ramos-carlos-2026': [1, 2]
     });
     const [matriculaMensaje, setMatriculaMensaje] = useState('');
 
-    // --- Estado de Pagos (solo en memoria) ---
+    
     const [anioConsultaPagos, setAnioConsultaPagos] = useState('2026');
     const [nombreAlumnoPagos, setNombreAlumnoPagos] = useState('');
     const [pagosPorMatriculaPagos, setPagosPorMatriculaPagos] = useState({
-        'chinga-ramos-carlos-2026': [1, 2, 3] // Matrícula, Marzo y Abril ya pagados en el demo
+        'chinga-ramos-carlos-2026': [1, 2, 3] 
     });
     const [correlativoBoleta, setCorrelativoBoleta] = useState(() => Math.floor(100000 + Math.random() * 900000));
     const [reciboMensaje, setReciboMensaje] = useState('');
     const [showHistorialPagosModal, setShowHistorialPagosModal] = useState(false);
 
-    // --- Estado de Conceptos / Tarifario (solo en memoria, por año) ---
+    
     const [conceptosPorAnio, setConceptosPorAnio] = useState(mockConceptosPorAnio);
     const [anioConceptos, setAnioConceptos] = useState('2026');
     const [editingConceptoId, setEditingConceptoId] = useState(null);
@@ -243,7 +243,7 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
     const conceptosDelAnio = (conceptosPorAnio[anioConceptos] || []).slice().sort((a, b) => a.orden - b.orden);
     const anioSiguienteConceptos = String(Number(anioConceptos) + 1);
 
-    // Alterna obligatorio sí/no de un concepto con un clic sobre el badge (solo en memoria)
+    
     const toggleObligatorio = (conceptoId) => {
         setConceptosPorAnio(prev => ({
             ...prev,
@@ -253,7 +253,7 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
         }));
     };
 
-    // Abre el modo edición de un concepto (nombre, tipo, monto, orden)
+    
     const startEditConcepto = (concepto) => {
         setEditingConceptoId(concepto.id);
         setEditDraft({
@@ -269,7 +269,7 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
         setEditDraft({ nombre: '', tipo: 'Fijo', monto: '', orden: '' });
     };
 
-    // Guarda los cambios del concepto en edición (solo en memoria, no llama a ninguna API)
+    
     const saveConcepto = (conceptoId) => {
         if (!editDraft.nombre.trim() || !editDraft.monto || !editDraft.orden) return;
 
@@ -284,7 +284,7 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
         cancelEditConcepto();
     };
 
-    // Crea un concepto nuevo SOLO en memoria para el año seleccionado
+    
     const crearConcepto = (e) => {
         e.preventDefault();
         if (!newConcepto.nombre.trim() || !newConcepto.monto || !newConcepto.orden) return;
@@ -310,7 +310,7 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
         setShowNewConceptoForm(false);
     };
 
-    // Clona el tarifario del año actual hacia el año siguiente (solo en memoria) y cambia la vista a ese año
+    
     const clonarAAnioSiguiente = () => {
         const listaActual = conceptosPorAnio[anioConceptos] || [];
         setConceptosPorAnio(prev => ({
@@ -381,7 +381,7 @@ const guardarNuevoAlumno = (e) => {
 
     setShowNuevoAlumnoModal(false);
 };   
-    // Valida y crea una nueva aula (solo en memoria). Respeta la Unique Key compuesta: Año + Nivel + Grado + Sección
+    
     const crearAula = (e) => {
         e.preventDefault();
         setNewAulaError('');
@@ -415,22 +415,22 @@ const guardarNuevoAlumno = (e) => {
             nivel: newAula.nivel,
             grado: gradoLimpio,
             seccion: seccionLimpia,
-            alumnos: 0, // Empieza en 0: sube automáticamente con cada matrícula real
-            cupo: 25, // Cupo por defecto
+            alumnos: 0, 
+            cupo: 25, 
             estado: 'disponible',
             anio: newAula.anio
         };
 
         setAulas(prev => [...prev, aulaNueva]);
         setSelectedAulaId(nuevoId);
-        setAnioAcademico(newAula.anio); // para que se vea de inmediato en el listado
+        setAnioAcademico(newAula.anio); 
         setNivelFiltro('Todos');
 
         setNewAula({ nivel: 'Inicial', grado: '', seccion: '', anio: newAula.anio });
         setShowNewAulaForm(false);
     };
 
-    // Valida y simula el cambio de clave (solo en memoria, no llama a ninguna API)
+    
     const cambiarClave = (e) => {
         e.preventDefault();
         setClaveError('');
@@ -460,7 +460,7 @@ const guardarNuevoAlumno = (e) => {
         setTimeout(() => setClaveExito(false), 3000);
     };
 
-    // --- Derivados de Matrícula ---
+    
     const selectedAulaMatricula = aulas.find(a => a.id === selectedAulaMatriculaId) || null;
     const aulaMatriculaLlena = selectedAulaMatricula?.estado === 'llena';
 
@@ -469,7 +469,7 @@ const guardarNuevoAlumno = (e) => {
 
     const conceptosDelAnioMatricula = (conceptosPorAnio[anioMatricula] || []).slice().sort((a, b) => a.orden - b.orden);
 
-    // Calcula el estado de cada cuota: pagado / pagar (habilitada) / bloqueado (falta pagar la anterior)
+    
     let bloqueoEncontrado = false;
     const cuotasConEstado = conceptosDelAnioMatricula.map((concepto) => {
         const pagado = pagadosIds.includes(concepto.id);
@@ -480,7 +480,7 @@ const guardarNuevoAlumno = (e) => {
             estado = 'bloqueado';
         } else {
             estado = 'pagar';
-            bloqueoEncontrado = true; // solo la primera cuota pendiente queda habilitada; el resto se bloquea
+            bloqueoEncontrado = true; 
         }
         return { ...concepto, estadoPago: estado };
     });
@@ -490,7 +490,7 @@ const guardarNuevoAlumno = (e) => {
         ? cuotasConEstado.filter(c => c.orden < primerBloqueado.orden).slice(-1)[0]
         : null;
 
-    // Marca una cuota como pagada (solo en memoria, no llama a ninguna API)
+    
     const pagarCuota = (conceptoId) => {
         setPagosPorMatricula(prev => ({
             ...prev,
@@ -498,14 +498,14 @@ const guardarNuevoAlumno = (e) => {
         }));
     };
 
-    // Aulas que coinciden con la búsqueda del modal (por nivel, grado o sección)
+    
     const aulasFiltradasModal = aulas.filter(a => {
         const q = aulaQuery.trim().toLowerCase();
         if (!q) return true;
         return a.nivel.toLowerCase().includes(q) || a.grado.toLowerCase().includes(q) || a.seccion.toLowerCase().includes(q);
     });
 
-    // Aulas disponibles para elegir en el modal de Matrícula: solo del año elegido y que no estén llenas ni eliminadas
+    
     const aulasDisponiblesModal = aulas.filter(a =>
         a.anio === anioMatricula && a.estado !== 'llena' && a.estado !== 'eliminada'
     );
@@ -537,27 +537,27 @@ const guardarNuevoAlumno = (e) => {
 };
 
     const seleccionarAulaModal = (aula) => {
-        if (aula.estado === 'llena') return; // no se puede elegir un aula llena
+        if (aula.estado === 'llena') return; 
         setSelectedAulaMatriculaId(aula.id);
         setShowAulaModal(false);
         setMatriculaMensaje('');
     };
 
-    // Simula matricular al alumno ingresado en el aula seleccionada (solo en memoria, no persiste)
+    
     const matricularAlumno = () => {
         if (!nombreAlumnoMatricula.trim() || !selectedAulaMatricula) return;
         if (aulaMatriculaLlena) return;
 
         const aulaId = selectedAulaMatricula.id;
 
-        // El aula sube su contador de alumnos y recalcula su estado (disponible / casi llena / llena)
+        
         setAulas(prev => prev.map(a => {
             if (a.id !== aulaId) return a;
             const nuevosAlumnos = a.alumnos + 1;
             return { ...a, alumnos: nuevosAlumnos, estado: calcularEstadoAula(nuevosAlumnos, a.cupo) };
         }));
 
-        // El alumno matriculado aparece en la lista de esa aula (pestaña Aulas)
+        
         setAlumnosPorAula(prev => {
             const listaActual = prev[aulaId] || [];
             const siguienteN = listaActual.length > 0 ? Math.max(...listaActual.map(a => a.n)) + 1 : 1;
@@ -576,12 +576,12 @@ const guardarNuevoAlumno = (e) => {
         setTimeout(() => setMatriculaMensaje(''), 3000);
     };
 
-    // --- Derivados de Pagos ---
+    
     const alumnoKeyBase = nombreAlumnoPagos.trim().toLowerCase().replace(/,/g, '').replace(/\s+/g, '-');
     const matriculaKeyPagos = `${alumnoKeyBase}-${anioConsultaPagos}`;
     const pagadosIdsPagos = pagosPorMatriculaPagos[matriculaKeyPagos] || [];
 
-    // Lista de TODOS los alumnos reales matriculados (de cualquier aula del año consultado), para el modal de Pagos
+    
     const todosLosAlumnosPagos = aulas
         .filter(a => a.anio === anioConsultaPagos)
         .flatMap(a => (alumnosPorAula[a.id] || []).map(al => ({
@@ -621,7 +621,7 @@ const deudaPendiente2025 = historialPagosDetalle
     .filter(p => p.estado === 'pendiente')
     .reduce((total, p) => total + p.monto, 0);
 
-    // Marca una cuota como pagada, genera un correlativo de boleta ALEATORIO válido (6 dígitos, solo en memoria)
+    
     const pagarCuotaPagos = (cuotaId) => {
         const nuevoCorrelativo = Math.floor(100000 + Math.random() * 900000);
         setPagosPorMatriculaPagos(prev => ({

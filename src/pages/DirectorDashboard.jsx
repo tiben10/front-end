@@ -47,8 +47,8 @@ const cambiarClave = () => {
 
     setClaveExito(true);
 
-    // Aquí después se conectará con el backend.
-    // api.put('/usuarios/cambiar-clave', { claveActual, claveNueva });
+    
+    
 
     setClaveActual('');
     setClaveNueva('');

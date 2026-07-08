@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import '../Styles/Dashboard.css'
-import PermissionTree from './PermissionTree'; // <-- Importamos el componente del árbol
+import PermissionTree from './PermissionTree'; 
 
 const SuperUserDashboard = () => {
     const [usuarios, setUsuarios] = useState([]);
-    const [allFuncs, setAllFuncs] = useState([]); // <-- Nuevo estado para las funcionalidades
-    const [permissions, setPermissions] = useState({}); // <-- Nuevo estado para los checkboxes
+    const [allFuncs, setAllFuncs] = useState([]); 
+    const [permissions, setPermissions] = useState({}); 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selectedUser, setSelectedUser] = useState(null);
 
-    // Carga inicial de Usuarios y Funcionalidades
+    
     useEffect(() => {
         const mockUsuarios = [
             { idUsuario: 1, usuario: 'admin', estado: true, rol: { idRol: 1, nombreRol: 'SUPERUSUARIO' } },
@@ -30,7 +30,7 @@ const SuperUserDashboard = () => {
         setLoading(false);
     }, []);
 
-    // Función para cargar los permisos específicos de un rol
+    
     const loadPermissions = useCallback((user) => {
         const permMap = {};
         allFuncs.forEach(func => {
@@ -45,14 +45,14 @@ const SuperUserDashboard = () => {
         setPermissions(permMap);
     }, [allFuncs]);
 
-    // Efecto que dispara la carga de permisos cuando seleccionas un usuario en la tabla
+    
     useEffect(() => {
         if (selectedUser) {
             loadPermissions(selectedUser);
         }
     }, [selectedUser, loadPermissions]);
 
-    // Función que se ejecuta cada vez que haces clic en un checkbox
+    
     const handleToggle = (funcId, action) => {
         setPermissions(prev => {
             const currentFuncPerms = prev[funcId] || { ver: false, crear: false, editar: false, eliminar: false, imprimir: false };
@@ -66,7 +66,7 @@ const SuperUserDashboard = () => {
         });
     };
 
-    // Función para enviar los cambios a la base de datos
+    
     const applyPermissions = () => {
         alert("Permisos guardados con éxito.");
     };
@@ -187,14 +187,14 @@ const SuperUserDashboard = () => {
                                 <div className="perm-box">
                                     <p className="perm-subtitle">Módulos habilitados</p>
 
-                                    {/* Componente del Árbol de Permisos */}
+                                    
                                     <PermissionTree 
                                         functionalities={allFuncs} 
                                         permissions={permissions} 
                                         onToggle={handleToggle} 
                                     />
 
-                                    {/* Botón que llama a la función applyPermissions */}
+                                    
                                     <button className="apply-btn" onClick={applyPermissions}>
                                         ✓ Aplicar permisos
                                     </button>

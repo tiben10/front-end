@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import '../Styles/Dashboard.css'
-import PermissionTree from './PermissionTree'; // <-- Importamos el componente del árbol
+import PermissionTree from './PermissionTree'; 
 import { decodeJwt } from '../services/jwt';
 import { logout } from '../services/authService';
 import { listarUsuarios, crearUsuario as crearUsuarioApi, eliminarUsuario as eliminarUsuarioApi, cambiarPassword, restablecerPassword } from '../services/usuarioService';
@@ -388,7 +388,7 @@ const SuperUserDashboard = () => {
         }
     };
 
-    // Solo el Superusuario puede hacer esto: no requiere la contraseña actual del usuario afectado
+    
     const handleResetUserPassword = async (e) => {
         e.preventDefault();
         setTargetPassError('');

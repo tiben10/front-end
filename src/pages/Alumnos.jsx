@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import api from '../services/api';
 
-//holiiiii
+
 const Alumnos = () => {
     const [alumnos, setAlumnos] = useState([]);
     const [form, setForm] = useState({ nombre: '', apellido: '', dni: '', correo: '' });
 
-    // OJO: Si aún no tienes los métodos GET y POST de Alumnos en tu Java, 
-    // la tabla estará vacía por ahora, pero la interfaz ya queda lista.
+    
+    
     const cargarAlumnos = async () => {
         try {
             const response = await api.get('/alumnos');
