@@ -15,6 +15,40 @@ const estadoMatriculaClass = (estado) => {
 };
 const DirectorDashboard = () => {
     const [activeTab, setActiveTab] = useState('registros');
+    const [claveActual, setClaveActual] = useState('');
+const [claveNueva, setClaveNueva] = useState('');
+const [confirmarClave, setConfirmarClave] = useState('');
+const [claveError, setClaveError] = useState('');
+const [claveExito, setClaveExito] = useState(false);
+
+const cambiarClave = () => {
+    setClaveError('');
+    setClaveExito(false);
+
+    if (!claveActual.trim() || !claveNueva.trim() || !confirmarClave.trim()) {
+        setClaveError('Todos los campos son obligatorios.');
+        return;
+    }
+
+    if (claveNueva !== confirmarClave) {
+        setClaveError('La nueva contraseña y la confirmación no coinciden.');
+        return;
+    }
+
+    if (claveNueva === claveActual) {
+        setClaveError('La nueva contraseña debe ser distinta a la actual.');
+        return;
+    }
+
+    setClaveExito(true);
+
+    // Aquí después se conectará con el backend.
+    // api.put('/usuarios/cambiar-clave', { claveActual, claveNueva });
+
+    setClaveActual('');
+    setClaveNueva('');
+    setConfirmarClave('');
+};
 
     return (
         <div className="dash-wrapper">
@@ -128,12 +162,68 @@ const DirectorDashboard = () => {
                                     👁 Vista de lectura — no se permiten modificaciones
                                 </div>
                             </>
-                        ) : (
-                            <>
-                                <h3 className="section-title">Próximamente</h3>
-                                <p>Esta sección ({activeTab}) se implementará más adelante.</p>
-                            </>
-                        )}
+                        ) : activeTab === 'clave' ? (
+    <>
+        <h3 className="section-title">Mi clave</h3>
+
+        <div className="perm-box" style={{ maxWidth: '420px' }}>
+            <div className="field-group">
+                <label className="field-label">Contraseña actual</label>
+                <input
+                    type="password"
+                    className="readonly-input"
+                    value={claveActual}
+                    onChange={(e) => setClaveActual(e.target.value)}
+                />
+            </div>
+
+            <div className="field-group">
+                <label className="field-label">Nueva contraseña</label>
+                <input
+                    type="password"
+                    className="readonly-input"
+                    value={claveNueva}
+                    onChange={(e) => setClaveNueva(e.target.value)}
+                />
+            </div>
+
+            <div className="field-group">
+                <label className="field-label">Confirmar contraseña</label>
+                <input
+                    type="password"
+                    className="readonly-input"
+                    value={confirmarClave}
+                    onChange={(e) => setConfirmarClave(e.target.value)}
+                />
+            </div>
+
+            {claveError && (
+                <p style={{ color: '#dc2626', fontSize: '0.85rem' }}>
+                    {claveError}
+                </p>
+            )}
+
+            {claveExito && (
+                <p style={{ color: '#16a34a', fontSize: '0.85rem' }}>
+                    ✓ Solicitud de cambio de clave lista para enviar al backend.
+                </p>
+            )}
+
+            <button
+                type="button"
+                className="apply-btn"
+                onClick={cambiarClave}
+            >
+                Cambiar clave
+            </button>
+        </div>
+    </>
+) : (
+    <>
+        <h3 className="section-title">Próximamente</h3>
+        <p>Esta sección ({activeTab}) se implementará más adelante.</p>
+    </>
+)}
                     </main>
                 </div>
             </div>
