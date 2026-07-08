@@ -14,4 +14,3 @@ export const reporteUsuarios = (params) => api.get('/reportes/usuarios', { param
 export const reporteRoles = (params) => api.get('/reportes/roles', { params }).then(r => r.data);
 export const reporteFuncionalidades = (params) => api.get('/reportes/funcionalidades', { params }).then(r => r.data);
 export const reporteCuotas = (params) => api.get('/reportes/cuotas', { params }).then(r => r.data);
-// (mismo patrón para /reportes/alumnos, /aulas, /conceptos, etc.)

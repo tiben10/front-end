@@ -8,7 +8,7 @@ export const login = async (usuario, password) => {
     localStorage.setItem('token', token);
 
     const claims = decodeJwt(token);
-    // El backend mete "rol" e "idUsuario" en el JWT (ver JwtUtils.generarToken)
+    
     if (claims?.rol) localStorage.setItem('role', claims.rol);
 
     return claims;
@@ -22,7 +22,7 @@ export const logout = () => {
 export const getRole = () => localStorage.getItem('role');
 export const isAuthenticated = () => !!localStorage.getItem('token');
 
-// Requiere sesión ya iniciada (Authorization header ya viaja por el interceptor)
+
 export const generar2FA = async () => {
     const response = await api.post('/auth/generar-2fa');
     return response.data; // { secret, qrUrl }

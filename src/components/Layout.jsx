@@ -47,7 +47,7 @@ const Layout = () => {
 
             <div className="flex-grow-1 p-5 overflow-auto">
                 <div className="bg-white p-4 rounded shadow-sm h-100">
-                    {/* Aquí se inyectan las pantallas dinámicamente */}
+                    {}
                     <Outlet />
                 </div>
             </div>
