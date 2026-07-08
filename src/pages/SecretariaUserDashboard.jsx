@@ -230,6 +230,7 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
     });
     const [correlativoBoleta, setCorrelativoBoleta] = useState(() => Math.floor(100000 + Math.random() * 900000));
     const [reciboMensaje, setReciboMensaje] = useState('');
+    const [showHistorialPagosModal, setShowHistorialPagosModal] = useState(false);
 
     // --- Estado de Conceptos / Tarifario (solo en memoria, por año) ---
     const [conceptosPorAnio, setConceptosPorAnio] = useState(mockConceptosPorAnio);
@@ -605,6 +606,20 @@ const guardarNuevoAlumno = (e) => {
 
     const historialAlumno = mockHistorialAlumnos[alumnoKeyBase] || historialPorDefecto;
     const deudaAnterior = historialAlumno.find(h => h.estado === 'pendiente');
+    const historialPagosDetalle = [
+    { id: 1, concepto: 'Matrícula 2025', monto: 200, fecha: '05/03/25', estado: 'pagado', recibo: 'BOL-2025-001' },
+    { id: 2, concepto: 'Marzo 2025', monto: 100, fecha: '01/04/25', estado: 'pagado', recibo: 'BOL-2025-018' },
+    { id: 3, concepto: 'Abril 2025', monto: 100, fecha: '02/05/25', estado: 'pagado', recibo: 'BOL-2025-031' },
+    { id: 4, concepto: 'Diciembre 2025', monto: 100, fecha: '—', estado: 'pendiente', recibo: null }
+];
+
+const totalPagado2025 = historialPagosDetalle
+    .filter(p => p.estado === 'pagado')
+    .reduce((total, p) => total + p.monto, 0);
+
+const deudaPendiente2025 = historialPagosDetalle
+    .filter(p => p.estado === 'pendiente')
+    .reduce((total, p) => total + p.monto, 0);
 
     // Marca una cuota como pagada, genera un correlativo de boleta ALEATORIO válido (6 dígitos, solo en memoria)
     const pagarCuotaPagos = (cuotaId) => {
@@ -933,9 +948,19 @@ const guardarNuevoAlumno = (e) => {
                                                 placeholder="Selecciona un alumno con el botón Modal"
                                                 value={nombreAlumnoPagos}
                                             />
-                                            <button className="modal-trigger-btn" type="button" onClick={() => setShowAlumnoModal(true)}>
-                                                <IconSearch /> Modal
-                                            </button>
+                                            <button
+    className="modal-trigger-btn"
+    type="button"
+    onClick={() => {
+        if (!nombreAlumnoPagos.trim()) {
+            setShowAlumnoModal(true);
+        } else {
+            setShowHistorialPagosModal(true);
+        }
+    }}
+>
+    <IconSearch /> Modal
+</button>
                                         </div>
                                     </div>
                                 </div>
@@ -976,6 +1001,98 @@ const guardarNuevoAlumno = (e) => {
                                         </div>
                                     </div>
                                 )}
+                                {showHistorialPagosModal && (
+    <div
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+        onClick={() => setShowHistorialPagosModal(false)}
+    >
+        <div
+            className="perm-box"
+            style={{ background: 'white', width: '850px', maxHeight: '80vh', overflowY: 'auto', padding: '1.25rem' }}
+            onClick={(e) => e.stopPropagation()}
+        >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h3 className="section-title" style={{ margin: 0 }}>
+                    Historial de pagos — 2025
+                </h3>
+
+                <button
+                    type="button"
+                    className="btn-primary-outline"
+                    onClick={() => setShowHistorialPagosModal(false)}
+                >
+                    ← Volver a 2026
+                </button>
+            </div>
+
+            <div className="warning-banner" style={{ marginBottom: '1rem' }}>
+                Año 2025 tiene deuda pendiente — regularizar para habilitar matrícula 2026
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 250px', gap: '1rem' }}>
+                <table className="users-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Concepto</th>
+                            <th>Monto</th>
+                            <th>Fecha pago</th>
+                            <th>Estado</th>
+                            <th>Recibo / Acción</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {historialPagosDetalle.map((pago) => (
+                            <tr key={pago.id} className={pago.estado === 'pendiente' ? 'pagos-row-deuda' : ''}>
+                                <td>{pago.id}</td>
+                                <td>{pago.concepto}</td>
+                                <td>S/ {pago.monto}</td>
+                                <td>{pago.fecha}</td>
+                                <td>
+                                    {pago.estado === 'pagado' ? (
+                                        <span className="estado-pagado-pill">pagado</span>
+                                    ) : (
+                                        <span className="estado-deuda-pill">pendiente</span>
+                                    )}
+                                </td>
+                                <td>
+                                    {pago.estado === 'pagado' ? (
+                                        <button className="recibo-link">{pago.recibo}</button>
+                                    ) : (
+                                        <button className="pagar-btn-solid">Pagar ahora</button>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+
+                <div className="perm-box">
+                    <p className="table-footer-note">Total pagado 2025</p>
+                    <h2>S/ {totalPagado2025}</h2>
+
+                    <p className="table-footer-note">Deuda pendiente</p>
+                    <h2 style={{ color: '#991b1b' }}>S/ {deudaPendiente2025}</h2>
+
+                    <hr />
+
+                    <p style={{ color: '#991b1b', fontWeight: 600 }}>
+                        Matrícula 2026 bloqueada
+                    </p>
+
+                    <p className="table-footer-note">
+                        Se desbloquea al pagar la deuda anterior.
+                    </p>
+                </div>
+            </div>
+
+            <p className="table-footer-note" style={{ marginTop: '1rem' }}>
+                Auditoría: cada pago registra usuario que operó y timestamp de inserción/modificación.
+            </p>
+        </div>
+    </div>
+)}
 
                                 {deudaAnterior && (
                                     <div className="warning-banner">
