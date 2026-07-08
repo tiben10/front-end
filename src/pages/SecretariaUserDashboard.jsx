@@ -184,8 +184,19 @@ const SecretariaUserDashboard = () => {
     // --- Alumnos (solo en memoria): selección de aula para ver sus alumnos guardados ---
     const [anioAlumnos, setAnioAlumnos] = useState('2026');
     const [selectedAulaAlumnosId, setSelectedAulaAlumnosId] = useState(null);
-    const [alumnosGeneral] = useState(mockAlumnosGeneral);
+    const [alumnosGeneral, setAlumnosGeneral] = useState(mockAlumnosGeneral);
 const [busquedaAlumno, setBusquedaAlumno] = useState('');
+const [showNuevoAlumnoModal, setShowNuevoAlumnoModal] = useState(false);
+const [alumnoError, setAlumnoError] = useState('');
+
+const [nuevoAlumno, setNuevoAlumno] = useState({
+    tipoDoc: 'DNI',
+    documento: '',
+    nombres: '',
+    apPaterno: '',
+    apMaterno: '',
+    fechaNacimiento: ''
+});
 
     // --- Cambiar mi clave (solo en memoria) ---
     const [claveActual, setClaveActual] = useState('');
@@ -219,6 +230,7 @@ const [busquedaAlumno, setBusquedaAlumno] = useState('');
     });
     const [correlativoBoleta, setCorrelativoBoleta] = useState(() => Math.floor(100000 + Math.random() * 900000));
     const [reciboMensaje, setReciboMensaje] = useState('');
+    const [showHistorialPagosModal, setShowHistorialPagosModal] = useState(false);
 
     // --- Estado de Conceptos / Tarifario (solo en memoria, por año) ---
     const [conceptosPorAnio, setConceptosPorAnio] = useState(mockConceptosPorAnio);
@@ -322,7 +334,53 @@ const [busquedaAlumno, setBusquedaAlumno] = useState('');
 
     return texto.includes(busquedaAlumno.toLowerCase());
 });
-   
+
+const guardarNuevoAlumno = (e) => {
+    e.preventDefault();
+    setAlumnoError('');
+
+    if (
+        !nuevoAlumno.documento.trim() ||
+        !nuevoAlumno.nombres.trim() ||
+        !nuevoAlumno.apPaterno.trim() ||
+        !nuevoAlumno.apMaterno.trim() ||
+        !nuevoAlumno.fechaNacimiento
+    ) {
+        setAlumnoError('Todos los campos son obligatorios.');
+        return;
+    }
+
+    const nuevoId =
+        alumnosGeneral.length > 0
+            ? Math.max(...alumnosGeneral.map((a) => a.id)) + 1
+            : 1;
+
+    const alumnoCreado = {
+        id: nuevoId,
+        codigo: `AL${String(nuevoId).padStart(4, '0')}`,
+        documento: nuevoAlumno.documento,
+        tipoDoc: nuevoAlumno.tipoDoc,
+        nombres: nuevoAlumno.nombres,
+        apPaterno: nuevoAlumno.apPaterno,
+        apMaterno: nuevoAlumno.apMaterno,
+        nivel: 'Sin matrícula',
+        grado: '-',
+        estado: 'pendiente'
+    };
+
+    setAlumnosGeneral((prev) => [...prev, alumnoCreado]);
+
+    setNuevoAlumno({
+        tipoDoc: 'DNI',
+        documento: '',
+        nombres: '',
+        apPaterno: '',
+        apMaterno: '',
+        fechaNacimiento: ''
+    });
+
+    setShowNuevoAlumnoModal(false);
+};   
     // Valida y crea una nueva aula (solo en memoria). Respeta la Unique Key compuesta: Año + Nivel + Grado + Sección
     const crearAula = (e) => {
         e.preventDefault();
@@ -548,6 +606,20 @@ const [busquedaAlumno, setBusquedaAlumno] = useState('');
 
     const historialAlumno = mockHistorialAlumnos[alumnoKeyBase] || historialPorDefecto;
     const deudaAnterior = historialAlumno.find(h => h.estado === 'pendiente');
+    const historialPagosDetalle = [
+    { id: 1, concepto: 'Matrícula 2025', monto: 200, fecha: '05/03/25', estado: 'pagado', recibo: 'BOL-2025-001' },
+    { id: 2, concepto: 'Marzo 2025', monto: 100, fecha: '01/04/25', estado: 'pagado', recibo: 'BOL-2025-018' },
+    { id: 3, concepto: 'Abril 2025', monto: 100, fecha: '02/05/25', estado: 'pagado', recibo: 'BOL-2025-031' },
+    { id: 4, concepto: 'Diciembre 2025', monto: 100, fecha: '—', estado: 'pendiente', recibo: null }
+];
+
+const totalPagado2025 = historialPagosDetalle
+    .filter(p => p.estado === 'pagado')
+    .reduce((total, p) => total + p.monto, 0);
+
+const deudaPendiente2025 = historialPagosDetalle
+    .filter(p => p.estado === 'pendiente')
+    .reduce((total, p) => total + p.monto, 0);
 
     // Marca una cuota como pagada, genera un correlativo de boleta ALEATORIO válido (6 dígitos, solo en memoria)
     const pagarCuotaPagos = (cuotaId) => {
@@ -876,9 +948,19 @@ const [busquedaAlumno, setBusquedaAlumno] = useState('');
                                                 placeholder="Selecciona un alumno con el botón Modal"
                                                 value={nombreAlumnoPagos}
                                             />
-                                            <button className="modal-trigger-btn" type="button" onClick={() => setShowAlumnoModal(true)}>
-                                                <IconSearch /> Modal
-                                            </button>
+                                            <button
+    className="modal-trigger-btn"
+    type="button"
+    onClick={() => {
+        if (!nombreAlumnoPagos.trim()) {
+            setShowAlumnoModal(true);
+        } else {
+            setShowHistorialPagosModal(true);
+        }
+    }}
+>
+    <IconSearch /> Modal
+</button>
                                         </div>
                                     </div>
                                 </div>
@@ -919,6 +1001,98 @@ const [busquedaAlumno, setBusquedaAlumno] = useState('');
                                         </div>
                                     </div>
                                 )}
+                                {showHistorialPagosModal && (
+    <div
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+        onClick={() => setShowHistorialPagosModal(false)}
+    >
+        <div
+            className="perm-box"
+            style={{ background: 'white', width: '850px', maxHeight: '80vh', overflowY: 'auto', padding: '1.25rem' }}
+            onClick={(e) => e.stopPropagation()}
+        >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h3 className="section-title" style={{ margin: 0 }}>
+                    Historial de pagos — 2025
+                </h3>
+
+                <button
+                    type="button"
+                    className="btn-primary-outline"
+                    onClick={() => setShowHistorialPagosModal(false)}
+                >
+                    ← Volver a 2026
+                </button>
+            </div>
+
+            <div className="warning-banner" style={{ marginBottom: '1rem' }}>
+                Año 2025 tiene deuda pendiente — regularizar para habilitar matrícula 2026
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 250px', gap: '1rem' }}>
+                <table className="users-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Concepto</th>
+                            <th>Monto</th>
+                            <th>Fecha pago</th>
+                            <th>Estado</th>
+                            <th>Recibo / Acción</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {historialPagosDetalle.map((pago) => (
+                            <tr key={pago.id} className={pago.estado === 'pendiente' ? 'pagos-row-deuda' : ''}>
+                                <td>{pago.id}</td>
+                                <td>{pago.concepto}</td>
+                                <td>S/ {pago.monto}</td>
+                                <td>{pago.fecha}</td>
+                                <td>
+                                    {pago.estado === 'pagado' ? (
+                                        <span className="estado-pagado-pill">pagado</span>
+                                    ) : (
+                                        <span className="estado-deuda-pill">pendiente</span>
+                                    )}
+                                </td>
+                                <td>
+                                    {pago.estado === 'pagado' ? (
+                                        <button className="recibo-link">{pago.recibo}</button>
+                                    ) : (
+                                        <button className="pagar-btn-solid">Pagar ahora</button>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+
+                <div className="perm-box">
+                    <p className="table-footer-note">Total pagado 2025</p>
+                    <h2>S/ {totalPagado2025}</h2>
+
+                    <p className="table-footer-note">Deuda pendiente</p>
+                    <h2 style={{ color: '#991b1b' }}>S/ {deudaPendiente2025}</h2>
+
+                    <hr />
+
+                    <p style={{ color: '#991b1b', fontWeight: 600 }}>
+                        Matrícula 2026 bloqueada
+                    </p>
+
+                    <p className="table-footer-note">
+                        Se desbloquea al pagar la deuda anterior.
+                    </p>
+                </div>
+            </div>
+
+            <p className="table-footer-note" style={{ marginTop: '1rem' }}>
+                Auditoría: cada pago registra usuario que operó y timestamp de inserción/modificación.
+            </p>
+        </div>
+    </div>
+)}
 
                                 {deudaAnterior && (
                                     <div className="warning-banner">
@@ -1049,6 +1223,14 @@ const [busquedaAlumno, setBusquedaAlumno] = useState('');
                     Lista general de alumnos registrados.
                 </p>
             </div>
+
+            <button
+                type="button"
+                className="apply-btn"
+                onClick={() => setShowNuevoAlumnoModal(true)}
+            >
+                + Agregar alumno
+            </button>
         </div>
 
         <input
@@ -1077,15 +1259,9 @@ const [busquedaAlumno, setBusquedaAlumno] = useState('');
                     <tr key={alumno.id}>
                         <td>{index + 1}</td>
                         <td>{alumno.codigo}</td>
-                        <td>
-                            {alumno.apPaterno} {alumno.apMaterno}, {alumno.nombres}
-                        </td>
-                        <td>
-                            {alumno.tipoDoc} {alumno.documento}
-                        </td>
-                        <td>
-                            {alumno.nivel} {alumno.grado}
-                        </td>
+                        <td>{alumno.apPaterno} {alumno.apMaterno}, {alumno.nombres}</td>
+                        <td>{alumno.tipoDoc} {alumno.documento}</td>
+                        <td>{alumno.nivel} {alumno.grado}</td>
                         <td>
                             <span className={`matric-badge ${matriculaBadgeClass(alumno.estado)}`}>
                                 {alumno.estado}
@@ -1099,6 +1275,119 @@ const [busquedaAlumno, setBusquedaAlumno] = useState('');
         <p className="table-footer-note">
             Mostrando {alumnosFiltradosGeneral.length} alumnos registrados.
         </p>
+
+        {showNuevoAlumnoModal && (
+            <div
+                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+                onClick={() => setShowNuevoAlumnoModal(false)}
+            >
+                <form
+                    className="perm-box"
+                    style={{ background: 'white', width: '760px', maxHeight: '80vh', overflowY: 'auto', padding: '1.25rem' }}
+                    onClick={(e) => e.stopPropagation()}
+                    onSubmit={guardarNuevoAlumno}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <h3 className="section-title" style={{ margin: 0 }}>Nuevo Alumno</h3>
+                        <button type="button" className="icon-btn" onClick={() => setShowNuevoAlumnoModal(false)}>✕</button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                        <div className="field-group">
+                            <label className="field-label">Código</label>
+                            <input className="readonly-input" value="Autogenerado" disabled />
+                        </div>
+
+                        <div className="field-group">
+                            <label className="field-label">Tipo Documento *</label>
+                            <select
+                                className="filter-select"
+                                value={nuevoAlumno.tipoDoc}
+                                onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, tipoDoc: e.target.value })}
+                            >
+                                <option value="DNI">DNI</option>
+                                <option value="CE">CE</option>
+                            </select>
+                        </div>
+
+                        <div className="field-group">
+                            <label className="field-label">Número Documento *</label>
+                            <input
+                                className="readonly-input"
+                                value={nuevoAlumno.documento}
+                                onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, documento: e.target.value })}
+                            />
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                        <div className="field-group">
+                            <label className="field-label">Nombres *</label>
+                            <input
+                                className="readonly-input"
+                                value={nuevoAlumno.nombres}
+                                onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, nombres: e.target.value })}
+                            />
+                        </div>
+
+                        <div className="field-group">
+                            <label className="field-label">Apellido Paterno *</label>
+                            <input
+                                className="readonly-input"
+                                value={nuevoAlumno.apPaterno}
+                                onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, apPaterno: e.target.value })}
+                            />
+                        </div>
+
+                        <div className="field-group">
+                            <label className="field-label">Apellido Materno *</label>
+                            <input
+                                className="readonly-input"
+                                value={nuevoAlumno.apMaterno}
+                                onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, apMaterno: e.target.value })}
+                            />
+                        </div>
+
+                        <div className="field-group">
+                            <label className="field-label">Fecha de Nacimiento *</label>
+                            <input
+                                type="date"
+                                className="readonly-input"
+                                value={nuevoAlumno.fechaNacimiento}
+                                onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, fechaNacimiento: e.target.value })}
+                            />
+                        </div>
+                    </div>
+
+                    {alumnoError && (
+                        <div className="warning-banner" style={{ marginBottom: '1rem' }}>
+                            {alumnoError}
+                        </div>
+                    )}
+
+                    <p className="table-footer-note">
+                        VALIDACIONES APLICADAS <br></br>
+                        . Tipo Documento + Número Documento -+ Unique Key (no se permite duplicar)<br></br>
+. Nombres / Apellidos -+ solo texto, sin caracteres especiales ni numeros<br></br>
+. Fecha de Nacimiento -+ formato de fecha válido<br></br>
+                    </p>
+
+                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+                        <button
+                            type="button"
+                            className="btn-primary-outline"
+                            onClick={() => setShowNuevoAlumnoModal(false)}
+                        >
+                            Cancelar
+                        </button>
+
+                        <button type="submit" className="apply-btn" style={{ width: '130px' }}>
+                            Guardar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        )}
     </main>
                     ) : activeTab === 'aulas' ? (
                         <>
