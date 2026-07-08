@@ -66,8 +66,8 @@ const ProfileCard = ({ profile }) => {
                 </div>
 
                 <div className="button-group">
-                    <button type="button" className={`btn ${profile.theme.btnClass}`} onClick={handleLogin} disabled={loading}>
-                        <LoginIcon /> {loading ? 'Ingresando...' : 'Ingresar'}
+                    <button type="button" className={`btn ${profile.theme.btnClass}`} onClick={handleLogin}>
+                        <LoginIcon /> Ingresar
                     </button>
                 </div>
             </div>
