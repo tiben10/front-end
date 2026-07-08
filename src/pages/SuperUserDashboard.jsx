@@ -257,6 +257,16 @@ const SuperUserDashboard = () => {
         }
     };
 
+    const getOperacionBadgeClass = (operacion) => {
+        switch (operacion?.toUpperCase()) {
+            case 'INSERT': return 'op-insert';
+            case 'UPDATE': return 'op-update';
+            case 'DELETE': return 'op-delete';
+            case 'LOGIN': return 'op-login';
+            default: return 'op-default';
+        }
+    };
+
     const cargarAuditoria = useCallback(async () => {
         setLoadingAudit(true);
         try {
@@ -638,7 +648,7 @@ const SuperUserDashboard = () => {
                             </aside>
                         </>
                     ) : activeTab === 'clave' ? (
-                        <main className="dash-content">
+                        <main className="dash-content dash-content-full">
                             <h3 className="section-title">Cambiar Clave</h3>
 
                             <div className="perm-box" style={{ marginBottom: '1.5rem' }}>
@@ -712,7 +722,7 @@ const SuperUserDashboard = () => {
                             </div>
                         </main>
                     ) : activeTab === 'trazabilidad' ? (
-                        <main className="dash-content" style={{ flex: 1 }}>
+                        <main className="dash-content dash-content-full">
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
                                 <h3 className="section-title" style={{ margin: 0 }}>Trazabilidad</h3>
                                 <button className="apply-btn" style={{ width: 'auto', padding: '0.4rem 0.9rem' }} onClick={abrirAuditoriaCompleta}>
@@ -726,33 +736,39 @@ const SuperUserDashboard = () => {
                             {loadingAudit ? (
                                 <p style={{ fontStyle: 'italic', color: '#6b7280' }}>Cargando trazabilidad...</p>
                             ) : auditLog.length === 0 ? (
-                                <p style={{ fontStyle: 'italic', color: '#6b7280' }}>Aún no hay acciones registradas.</p>
+                                <div className="audit-empty">
+                                    <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" strokeWidth="1.5" fill="none"><path d="M12 8v4l3 3"></path><path d="M3.05 11a9 9 0 1 1 .5 4"></path><path d="M3 4v5h5"></path></svg>
+                                    <p>Aún no hay acciones registradas.</p>
+                                </div>
                             ) : (
-                                <table className="users-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Usuario</th>
-                                            <th>Fecha</th>
-                                            <th>Acción</th>
-                                            <th>Módulo</th>
-                                            <th>Detalle</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {auditLog.map(entry => (
-                                            <tr key={entry.codAuditoria}>
-                                                <td>{entry.usuario?.usuario || '—'}</td>
-                                                <td className="doc-text">{entry.fechaHora ? new Date(entry.fechaHora).toLocaleString('es-PE') : '—'}</td>
-                                                <td>{entry.operacion}</td>
-                                                <td>{entry.modulo}</td>
-                                                <td style={{ fontSize: '0.85rem' }}>
-                                                    {entry.tablaAfectada}
-                                                    {entry.valorNuevo ? ` → ${entry.valorNuevo}` : ''}
-                                                </td>
+                                <div className="audit-recent-wrap">
+                                    <table className="audit-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Usuario</th>
+                                                <th>Fecha</th>
+                                                <th>Acción</th>
+                                                <th>Módulo</th>
+                                                <th>Registro Afectado</th>
+                                                <th>Detalle</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody>
+                                            {auditLog.map(entry => (
+                                                <tr key={entry.codAuditoria}>
+                                                    <td className="audit-user">{entry.usuario?.usuario || '—'}</td>
+                                                    <td className="audit-date">{entry.fechaHora ? new Date(entry.fechaHora).toLocaleString('es-PE') : '—'}</td>
+                                                    <td><span className={`audit-op-badge ${getOperacionBadgeClass(entry.operacion)}`}>{entry.operacion}</span></td>
+                                                    <td><span className="audit-tag">{entry.modulo}</span></td>
+                                                    <td className="audit-registro">{entry.tablaAfectada} #{entry.codigoRegistro}</td>
+                                                    <td>
+                                                        <button className="audit-ver-btn" onClick={() => verDetalleAuditoria(entry)}>Ver</button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             )}
 
                             <div className="table-footer-note">
@@ -760,7 +776,7 @@ const SuperUserDashboard = () => {
                             </div>
                         </main>
                     ) : activeTab === 'parametros' ? (
-                        <main className="dash-content" style={{ flex: 1 }}>
+                        <main className="dash-content dash-content-full">
                             <h3 className="section-title">Parámetros del sistema</h3>
                             <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '-0.5rem', marginBottom: '1rem' }}>
                                 Solo lectura: estos valores no viven en una tabla de configuración genérica, sino que reflejan
@@ -795,7 +811,7 @@ const SuperUserDashboard = () => {
                             )}
                         </main>
                     ) : (
-                        <main className="dash-content">
+                        <main className="dash-content dash-content-full">
                             <h3 className="section-title">Próximamente</h3>
                             <p>Esta sección ({activeTab}) se implementará más adelante.</p>
                         </main>
@@ -868,9 +884,12 @@ const SuperUserDashboard = () => {
                             {loadingAuditBusqueda ? (
                                 <p style={{ fontStyle: 'italic', color: '#6b7280' }}>Buscando...</p>
                             ) : auditResultados.content.length === 0 ? (
-                                <p style={{ fontStyle: 'italic', color: '#6b7280' }}>No se encontraron registros con esos filtros.</p>
+                                <div className="audit-empty">
+                                    <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" strokeWidth="1.5" fill="none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                    <p>No se encontraron registros con esos filtros.</p>
+                                </div>
                             ) : (
-                                <table className="users-table">
+                                <table className="audit-table">
                                     <thead>
                                         <tr>
                                             <th>N°</th>
@@ -887,17 +906,17 @@ const SuperUserDashboard = () => {
                                     <tbody>
                                         {auditResultados.content.map((entry, idx) => (
                                             <tr key={entry.codAuditoria}>
-                                                <td>{auditResultados.number * AUDIT_PAGE_SIZE + idx + 1}</td>
-                                                <td className="doc-text">{entry.fechaHora ? new Date(entry.fechaHora).toLocaleString('es-PE') : '—'}</td>
-                                                <td>{entry.usuario?.usuario || '—'}</td>
-                                                <td>{entry.modulo}</td>
-                                                <td>{entry.tablaAfectada}</td>
-                                                <td>{entry.operacion}</td>
-                                                <td>{entry.tablaAfectada} #{entry.codigoRegistro}</td>
+                                                <td className="audit-num">{auditResultados.number * AUDIT_PAGE_SIZE + idx + 1}</td>
+                                                <td className="audit-date">{entry.fechaHora ? new Date(entry.fechaHora).toLocaleString('es-PE') : '—'}</td>
+                                                <td className="audit-user">{entry.usuario?.usuario || '—'}</td>
+                                                <td><span className="audit-tag">{entry.modulo}</span></td>
+                                                <td><span className="audit-tag audit-tag-muted">{entry.tablaAfectada}</span></td>
+                                                <td><span className={`audit-op-badge ${getOperacionBadgeClass(entry.operacion)}`}>{entry.operacion}</span></td>
+                                                <td className="audit-registro">{entry.tablaAfectada} #{entry.codigoRegistro}</td>
                                                 <td>
-                                                    <button className="icon-btn" onClick={() => verDetalleAuditoria(entry)}>Ver</button>
+                                                    <button className="audit-ver-btn" onClick={() => verDetalleAuditoria(entry)}>Ver</button>
                                                 </td>
-                                                <td className="doc-text">{entry.ipOrigen}</td>
+                                                <td className="audit-ip">{entry.ipOrigen}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -907,18 +926,18 @@ const SuperUserDashboard = () => {
 
                         <div className="audit-pagination">
                             <span>
-                                Mostrando página {auditResultados.number + 1} de {Math.max(auditResultados.totalPages, 1)} — {auditResultados.totalElements} registros en total
+                                Mostrando página <strong>{auditResultados.number + 1}</strong> de <strong>{Math.max(auditResultados.totalPages, 1)}</strong> — {auditResultados.totalElements} registros en total
                             </span>
-                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <button
-                                    className="icon-btn"
+                                    className="audit-page-btn"
                                     disabled={auditPage === 0}
                                     onClick={() => buscarAuditoriaCompleta(auditPage - 1)}
                                 >
                                     ‹ Anterior
                                 </button>
                                 <button
-                                    className="icon-btn"
+                                    className="audit-page-btn"
                                     disabled={auditPage + 1 >= auditResultados.totalPages}
                                     onClick={() => buscarAuditoriaCompleta(auditPage + 1)}
                                 >
