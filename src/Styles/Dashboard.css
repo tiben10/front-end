@@ -1033,6 +1033,41 @@
 .sidebar-item.disabled:hover {
     background: transparent;
 }
+
+/* ================= Panel Superusuario — Reportes ================= */
+
+.reportes-menu {
+    width: 230px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.reportes-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    background: none;
+    font-size: 0.85rem;
+    color: #4b5563;
+    cursor: pointer;
+    text-align: left;
+}
+
+.reportes-menu-item:hover {
+    background-color: #f3f4f6;
+}
+
+.reportes-menu-item.active {
+    background-color: #eff6ff;
+    border-color: #93c5fd;
+    color: #1d4ed8;
+    font-weight: 600;
+}
 /* ================= Panel Director — Registros ================= */
 
 .director-summary-grid {
