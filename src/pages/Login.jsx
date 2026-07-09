@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import '../Styles/Login.css';
 import { useNavigate } from 'react-router-dom';
-import { login } from '../services/authService';
+//import { login } from '../services/authService';
 import Swal from 'sweetalert2';
 
 const LoginIcon = () => (
@@ -24,7 +24,7 @@ const ProfileCard = ({ profile }) => {
             return;
         }
         setLoading(true);
-        try {
+        /*try {
             const claims = await login(username, password);
             const rol = claims?.rol?.toUpperCase();
 
@@ -38,7 +38,18 @@ const ProfileCard = ({ profile }) => {
             Swal.fire('Error', msg, 'error');
         } finally {
             setLoading(false);
-        }
+        }*/
+       // BYPASS: login falso, no llama al backend
+        localStorage.setItem('token', 'fake-token');
+        localStorage.setItem('role', profile.role.toUpperCase());
+
+        const rol = profile.role.toUpperCase();
+        if (rol === 'DIRECTOR') navigate('/director-dashboard');
+        else if (rol === 'SECRETARIA') navigate('/secretaria-dashboard');
+        else navigate('/dashboard'); // SUPERUSUARIO
+
+        setLoading(false);
+
     };
 
     return (
@@ -77,7 +88,10 @@ const ProfileCard = ({ profile }) => {
 
 const LoginSelection = () => {
     const profilesData = [
-        { id: 1, initials: 'AC', role: 'LOGIN', access: 'Inicio de Sesion', theme: { headerClass: 'su-header', badgeClass: 'su-badge', btnClass: 'su-btn' } },
+        //{ id: 1, initials: 'AC', role: 'LOGIN', access: 'Inicio de Sesion', theme: { headerClass: 'su-header', badgeClass: 'su-badge', btnClass: 'su-btn' } },
+        { id: 1, initials: 'SU', role: 'Superusuario', access: 'acceso total', theme: { headerClass: 'su-header', badgeClass: 'su-badge', btnClass: 'su-btn' } },
+        { id: 2, initials: 'DI', role: 'Director', access: 'solo lectura', theme: { headerClass: 'di-header', badgeClass: 'di-badge', btnClass: 'di-btn' } },
+        { id: 3, initials: 'SE', role: 'Secretaria', access: 'operaciones', theme: { headerClass: 'se-header', badgeClass: 'se-badge', btnClass: 'se-btn' } }
     ];
 
     return (

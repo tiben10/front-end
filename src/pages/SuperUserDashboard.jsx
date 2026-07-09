@@ -5,13 +5,40 @@ import '../Styles/Dashboard.css'
 import PermissionTree from './PermissionTree'; 
 import { decodeJwt } from '../services/jwt';
 import { logout } from '../services/authService';
-import { listarUsuarios, crearUsuario as crearUsuarioApi, eliminarUsuario as eliminarUsuarioApi, cambiarPassword, restablecerPassword } from '../services/usuarioService';
-import { obtenerPermisosPorRol, aplicarPermisos } from '../services/permisoService';
-import { rolService, funcionalidadService } from '../services/catalogoService';
+import { crearUsuario as crearUsuarioApi, eliminarUsuario as eliminarUsuarioApi, cambiarPassword, restablecerPassword } from '../services/usuarioService';
+// import { obtenerPermisosPorRol, aplicarPermisos } from '../services/permisoService'; // no se usa: modo simulado
+// import { rolService, funcionalidadService } from '../services/catalogoService'; // no se usa: modo simulado
 import { listarAuditoriaReciente, obtenerFiltrosAuditoria, buscarAuditoria } from '../services/auditoriaService';
 import { obtenerParametros } from '../services/parametroService';
 
 const PERMISOS_VACIOS = { ver: false, crear: false, editar: false, eliminar: false, imprimir: false };
+
+// ===== DATOS SIMULADOS (sin backend) =====
+const MOCK_ROLES = [
+    { idRol: 1, nombreRol: 'SUPERUSUARIO', estado: true },
+    { idRol: 2, nombreRol: 'DIRECTOR', estado: true },
+    { idRol: 3, nombreRol: 'SECRETARIA', estado: true }
+];
+
+const MOCK_USUARIOS = [
+    { idUsuario: 1, usuario: 'Admin', doc: '00000001', estado: true, rol: MOCK_ROLES[0] },
+    { idUsuario: 2, usuario: 'Juan Ríos', doc: '11111111', estado: true, rol: MOCK_ROLES[1] },
+    { idUsuario: 3, usuario: 'María Torres', doc: '22222222', estado: true, rol: MOCK_ROLES[2] },
+    { idUsuario: 4, usuario: 'Luis Paz', doc: '33333333', estado: true, rol: MOCK_ROLES[2] }
+];
+
+const MOCK_FUNCIONALIDADES = [
+    { idFuncionalidad: 1, nombre: 'Usuarios' },
+    { idFuncionalidad: 2, nombre: 'Roles' },
+    { idFuncionalidad: 3, nombre: 'Permisos' },
+    { idFuncionalidad: 4, nombre: 'Auditoria' },
+    { idFuncionalidad: 5, nombre: 'Parametros' },
+    { idFuncionalidad: 6, nombre: 'Alumnos' },
+    { idFuncionalidad: 7, nombre: 'Matriculas' },
+    { idFuncionalidad: 8, nombre: 'Aulas' },
+    { idFuncionalidad: 9, nombre: 'Pagos' },
+    { idFuncionalidad: 10, nombre: 'Conceptos' }
+];
 
 const SuperUserDashboard = () => {
     const navigate = useNavigate();
@@ -72,21 +99,12 @@ const SuperUserDashboard = () => {
         const cargarDatos = async () => {
             setLoading(true);
             setError(null);
-            try {
-                const [usuariosData, rolesData, funcsData] = await Promise.all([
-                    listarUsuarios(),
-                    rolService.listar(),
-                    funcionalidadService.listar()
-                ]);
-                setUsuarios(usuariosData);
-                setRoles(rolesData);
-                setAllFuncs(funcsData);
-            } catch (err) {
-                console.error(err);
-                setError('No se pudo cargar la información desde el servidor.');
-            } finally {
-                setLoading(false);
-            }
+            // SIMULACION: en vez de llamar al backend, usamos datos mock
+            await new Promise(resolve => setTimeout(resolve, 300));
+            setUsuarios(MOCK_USUARIOS);
+            setRoles(MOCK_ROLES);
+            setAllFuncs(MOCK_FUNCIONALIDADES);
+            setLoading(false);
         };
 
         cargarDatos();
@@ -102,28 +120,14 @@ const SuperUserDashboard = () => {
     const cargarPermisosDeRol = useCallback(async (idRol) => {
         if (!idRol || allFuncs.length === 0) return;
         setLoadingRolePerms(true);
-        try {
-            const data = await obtenerPermisosPorRol(idRol);
-            const mapa = {};
-            allFuncs.forEach(func => {
-                mapa[func.idFuncionalidad] = { ...PERMISOS_VACIOS };
-            });
-            data.forEach(rf => {
-                mapa[rf.funcionalidad.idFuncionalidad] = {
-                    ver: !!rf.ver,
-                    crear: !!rf.crear,
-                    editar: !!rf.editar,
-                    eliminar: !!rf.eliminar,
-                    imprimir: !!rf.imprimir
-                };
-            });
-            setPermissionsByRole(prev => ({ ...prev, [idRol]: mapa }));
-        } catch (err) {
-            console.error(err);
-            Swal.fire('Error', 'No se pudieron cargar los permisos de ese rol.', 'error');
-        } finally {
-            setLoadingRolePerms(false);
-        }
+        // SIMULACION: no hay backend, todos los permisos parten vacios (todo sin marcar)
+        await new Promise(resolve => setTimeout(resolve, 150));
+        const mapa = {};
+        allFuncs.forEach(func => {
+            mapa[func.idFuncionalidad] = { ...PERMISOS_VACIOS };
+        });
+        setPermissionsByRole(prev => ({ ...prev, [idRol]: mapa }));
+        setLoadingRolePerms(false);
     }, [allFuncs]);
 
     useEffect(() => {
@@ -165,12 +169,8 @@ const SuperUserDashboard = () => {
     const handleToggleUser = (funcId, action = 'ver') => handleTogglePermission(selectedUser?.rol?.idRol, funcId, action);
 
     const guardarPermisosDeRol = async (idRol) => {
-        const permisosDelRol = permissionsByRole[idRol] || {};
-        const permisos = allFuncs.map(func => ({
-            idFuncionalidad: func.idFuncionalidad,
-            ...(permisosDelRol[func.idFuncionalidad] || PERMISOS_VACIOS)
-        }));
-        await aplicarPermisos(idRol, permisos);
+        // SIMULACION: no hay backend, solo esperamos un momento para que se sienta real
+        await new Promise(resolve => setTimeout(resolve, 300));
     };
 
     const applyUserPermissions = async () => {
@@ -454,6 +454,13 @@ const SuperUserDashboard = () => {
                             Cambiar Clave
                         </button>
                         <button
+                            className={`sidebar-item ${activeTab === 'permisos' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('permisos')}
+                        >
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                            Permisos
+                        </button>
+                        <button
                             className={`sidebar-item ${activeTab === 'trazabilidad' ? 'active' : ''}`}
                             onClick={() => setActiveTab('trazabilidad')}
                         >
@@ -721,6 +728,94 @@ const SuperUserDashboard = () => {
                                 </form>
                             </div>
                         </main>
+                    ) : activeTab === 'permisos' ? (
+                        <>
+                            <main className="dash-content" style={{ flex: 1 }}>
+                                <h3 className="section-title" style={{ marginBottom: '1rem' }}>Usuarios</h3>
+                                <table className="users-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Nombre</th>
+                                            <th>Rol</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {usuarios.filter(u => u.estado).map(user => {
+                                            const isSelected = selectedUser?.idUsuario === user.idUsuario;
+                                            return (
+                                                <tr
+                                                    key={user.idUsuario}
+                                                    className={`clickable-row ${isSelected ? 'selected-row' : ''}`}
+                                                    onClick={() => setSelectedUser(user)}
+                                                >
+                                                    <td>{user.usuario}</td>
+                                                    <td>
+                                                        <span className={`role-badge ${getRoleBadgeClass(user.rol?.nombreRol)}`}>
+                                                            {user.rol?.nombreRol?.toLowerCase()}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </main>
+
+                            <aside className="dash-permissions">
+                                {!selectedUser ? (
+                                    <div className="perm-box" style={{ marginTop: '2rem', textAlign: 'center', borderStyle: 'dashed' }}>
+                                        <p className="perm-subtitle" style={{ margin: 0 }}>👈 Selecciona un usuario en la tabla para ver y editar sus permisos.</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="perm-header">
+                                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" style={{ flexShrink: 0 }}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                            <h3 className="section-title" style={{ marginBottom: 0 }}>
+                                                Permisos — {selectedUser.usuario}
+                                            </h3>
+                                            <span className={`role-badge ${getRoleBadgeClass(selectedUser.rol?.nombreRol)}`}>
+                                                {selectedUser.rol?.nombreRol?.toLowerCase()}
+                                            </span>
+                                        </div>
+
+                                        <div className="perm-box">
+                                            {selectedUser.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO' ? (
+                                                <p style={{ fontSize: '0.8rem', color: '#6b7280', fontStyle: 'italic' }}>
+                                                    El Superusuario tiene acceso total y no puede modificarse.
+                                                </p>
+                                            ) : loadingRolePerms && !permissionsByRole[selectedUser.rol?.idRol] ? (
+                                                <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>Cargando permisos...</p>
+                                            ) : (
+                                                <>
+                                                    <p style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '-0.4rem' }}>
+                                                        Estos permisos aplican a todo el rol "{selectedUser.rol?.nombreRol?.toLowerCase()}", no solo a este usuario.
+                                                    </p>
+                                                    <PermissionTree
+                                                        functionalities={allFuncs}
+                                                        permissions={userPermissions}
+                                                        onToggle={handleToggleUser}
+                                                    />
+                                                </>
+                                            )}
+
+                                            <button
+                                                className="apply-btn"
+                                                onClick={applyUserPermissions}
+                                                disabled={selectedUser.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO'}
+                                            >
+                                                ✓ Aplicar permisos
+                                            </button>
+
+                                            {savedMessage && (
+                                                <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#16a34a', fontWeight: 600 }}>
+                                                    ✓ Permisos actualizados para el rol {selectedUser.rol?.nombreRol?.toLowerCase()}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </aside>
+                        </>
                     ) : activeTab === 'trazabilidad' ? (
                         <main className="dash-content dash-content-full">
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
