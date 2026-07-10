@@ -10,6 +10,7 @@ import { crearUsuario as crearUsuarioApi, eliminarUsuario as eliminarUsuarioApi,
 // import { rolService, funcionalidadService } from '../services/catalogoService'; // no se usa: modo simulado
 import { listarAuditoriaReciente, obtenerFiltrosAuditoria, buscarAuditoria } from '../services/auditoriaService';
 import { obtenerParametros } from '../services/parametroService';
+import { useTabHistory } from '../hooks/useTabHistory';
 
 const PERMISOS_VACIOS = { ver: false, crear: false, editar: false, eliminar: false, imprimir: false };
 
@@ -96,6 +97,7 @@ const SuperUserDashboard = () => {
     const [error, setError] = useState(null);
     const [selectedUser, setSelectedUser] = useState(null);
     const [activeTab, setActiveTab] = useState('usuarios');
+    useTabHistory(activeTab, setActiveTab);
     const [currentUsername, setCurrentUsername] = useState('admin');
 
     const [auditLog, setAuditLog] = useState([]);

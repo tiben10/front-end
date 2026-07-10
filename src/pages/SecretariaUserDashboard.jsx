@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import '../Styles/Dashboard.css';
+import { useTabHistory } from '../hooks/useTabHistory';
 
 const TOTP_STEP = 30; // segundos que dura cada codigo, igual que Google Authenticator
 
@@ -196,6 +197,7 @@ const tituloSuperiorPorTab = {
 
 const SecretariaUserDashboard = () => {
     const [activeTab, setActiveTab] = useState('matricula');
+    useTabHistory(activeTab, setActiveTab);
     const [aulas, setAulas] = useState(mockAulas);
     const [alumnosPorAula, setAlumnosPorAula] = useState(mockAlumnosPorAula);
     const [anioAcademico, setAnioAcademico] = useState('2026');

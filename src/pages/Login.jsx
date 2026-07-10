@@ -44,9 +44,11 @@ const ProfileCard = ({ profile }) => {
         localStorage.setItem('role', profile.role.toUpperCase());
 
         const rol = profile.role.toUpperCase();
-        if (rol === 'DIRECTOR') navigate('/director-dashboard');
-        else if (rol === 'SECRETARIA') navigate('/secretaria-dashboard');
-        else navigate('/dashboard'); // SUPERUSUARIO
+        // replace: true saca el login del historial del navegador, para que el botón "atrás"
+        // nunca pueda volver a la pantalla de login una vez adentro del dashboard.
+        if (rol === 'DIRECTOR') navigate('/director-dashboard', { replace: true });
+        else if (rol === 'SECRETARIA') navigate('/secretaria-dashboard', { replace: true });
+        else navigate('/dashboard', { replace: true }); // SUPERUSUARIO
 
         setLoading(false);
 

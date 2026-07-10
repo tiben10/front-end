@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import '../Styles/Dashboard.css';
+import { useTabHistory } from '../hooks/useTabHistory';
 const matriculasRecientes = [
     { id: '001', alumno: 'Chinga Ramos, Carlos', aula: 'Sec. 1° A', fecha: '10/03/2026', estado: 'activa', registradoPor: 'secretaria01' },
     { id: '002', alumno: 'López Díaz, Lucía', aula: 'Prim. 3° B', fecha: '11/03/2026', estado: 'activa', registradoPor: 'secretaria01' },
@@ -15,6 +16,7 @@ const estadoMatriculaClass = (estado) => {
 };
 const DirectorDashboard = () => {
     const [activeTab, setActiveTab] = useState('registros');
+    useTabHistory(activeTab, setActiveTab);
     const [claveActual, setClaveActual] = useState('');
 const [claveNueva, setClaveNueva] = useState('');
 const [confirmarClave, setConfirmarClave] = useState('');
