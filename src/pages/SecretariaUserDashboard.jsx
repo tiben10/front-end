@@ -1,5 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../Styles/Dashboard.css';
+
+const TOTP_STEP = 30; // segundos que dura cada codigo, igual que Google Authenticator
+
+// Genera un codigo de 6 digitos deterministico por ventana de 30s (simula un TOTP sin backend real)
+const generarCodigoTOTP = () => {
+    const ventana = Math.floor(Date.now() / 1000 / TOTP_STEP);
+    const semilla = `SIGEA-2FA-${ventana}`;
+    let hash = 0;
+    for (let i = 0; i < semilla.length; i++) {
+        hash = (hash * 31 + semilla.charCodeAt(i)) >>> 0;
+    }
+    return String(hash % 1000000).padStart(6, '0');
+};
+
+// Secreto de la cuenta de Google Authenticator de la secretaria (simulado: ya "configurado" de antes).
+// En un backend real este secreto se genera una sola vez por usuario y se guarda cifrado.
+const SECRETO_2FA_RAW = 'JBSWY3DPEHPK3PXP';
+const SECRETO_2FA_FORMATEADO = SECRETO_2FA_RAW.match(/.{1,4}/g).join(' '); // "JBSW Y3DP EHPK 3PXP"
+const CUENTA_2FA = 'secretaria@sigea';
+const OTPAUTH_URI = `otpauth://totp/SIGEA:${encodeURIComponent(CUENTA_2FA)}?secret=${SECRETO_2FA_RAW}&issuer=SIGEA`;
+const QR_2FA_URL = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(OTPAUTH_URI)}`;
 
 
 
@@ -91,6 +112,9 @@ const IconIdBadge = () => (
 );
 const IconPersonPlus = () => (
     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>
+);
+const IconShieldCheck = () => (
+    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="M9 12l2 2 4-4"></path></svg>
 );
 
 
@@ -222,6 +246,18 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
     });
     const [matriculaMensaje, setMatriculaMensaje] = useState('');
 
+    // Verificacion en dos pasos (Google Authenticator) antes de confirmar la matricula
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [claveVerificacion2FA, setClaveVerificacion2FA] = useState('');
+    const [errorPassword2FA, setErrorPassword2FA] = useState('');
+    const [show2FAModal, setShow2FAModal] = useState(false);
+    const [metodo2FA, setMetodo2FA] = useState('qr'); // 'qr' | 'secreto'
+    const [secretoCopiado, setSecretoCopiado] = useState(false);
+    const [codigo2FAInput, setCodigo2FAInput] = useState('');
+    const [error2FA, setError2FA] = useState('');
+    const [codigoActual2FA, setCodigoActual2FA] = useState(() => generarCodigoTOTP());
+    const [segundosRestantes2FA, setSegundosRestantes2FA] = useState(() => TOTP_STEP - (Math.floor(Date.now() / 1000) % TOTP_STEP));
+
     
     const [anioConsultaPagos, setAnioConsultaPagos] = useState('2026');
     const [nombreAlumnoPagos, setNombreAlumnoPagos] = useState('');
@@ -238,7 +274,7 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
     const [editingConceptoId, setEditingConceptoId] = useState(null);
     const [editDraft, setEditDraft] = useState({ nombre: '', tipo: 'Fijo', monto: '', orden: '' });
     const [showNewConceptoForm, setShowNewConceptoForm] = useState(false);
-    const [newConcepto, setNewConcepto] = useState({ nombre: '', tipo: 'Fijo', monto: '', orden: '', obligatorio: true });
+    const [newConcepto, setNewConcepto] = useState({ nombre: '', tipo: 'Fijo', monto: '', obligatorio: true });
 
     const conceptosDelAnio = (conceptosPorAnio[anioConceptos] || []).slice().sort((a, b) => a.orden - b.orden);
     const anioSiguienteConceptos = String(Number(anioConceptos) + 1);
@@ -287,17 +323,18 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
     
     const crearConcepto = (e) => {
         e.preventDefault();
-        if (!newConcepto.nombre.trim() || !newConcepto.monto || !newConcepto.orden) return;
+        if (!newConcepto.nombre.trim() || !newConcepto.monto) return;
 
         const listaActual = conceptosPorAnio[anioConceptos] || [];
         const nuevoId = listaActual.length > 0 ? Math.max(...listaActual.map(c => c.id)) + 1 : 1;
+        const nuevoOrden = listaActual.length > 0 ? Math.max(...listaActual.map(c => c.orden)) + 1 : 1;
 
         const conceptoNuevo = {
             id: nuevoId,
             nombre: newConcepto.nombre.trim(),
             tipo: newConcepto.tipo,
             monto: Number(newConcepto.monto),
-            orden: Number(newConcepto.orden),
+            orden: nuevoOrden,
             obligatorio: newConcepto.obligatorio
         };
 
@@ -306,7 +343,7 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
             [anioConceptos]: [...listaActual, conceptoNuevo]
         }));
 
-        setNewConcepto({ nombre: '', tipo: 'Fijo', monto: '', orden: '', obligatorio: true });
+        setNewConcepto({ nombre: '', tipo: 'Fijo', monto: '', obligatorio: true });
         setShowNewConceptoForm(false);
     };
 
@@ -319,6 +356,16 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
         }));
         setAnioConceptos(anioSiguienteConceptos);
     };
+
+    useEffect(() => {
+        if (!show2FAModal) return;
+        const interval = setInterval(() => {
+            const ahora = Math.floor(Date.now() / 1000);
+            setSegundosRestantes2FA(TOTP_STEP - (ahora % TOTP_STEP));
+            setCodigoActual2FA(generarCodigoTOTP());
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [show2FAModal]);
 
     const aulasFiltradas = aulas.filter(a => (nivelFiltro === 'Todos' || a.nivel === nivelFiltro) && a.anio === anioAcademico);
     const selectedAula = aulas.find(a => a.id === selectedAulaId) || null;
@@ -580,6 +627,60 @@ const guardarNuevoAlumno = (e) => {
 
         setMatriculaMensaje(`✓ ${nombreAlumnoMatricula.trim()} matriculado en ${selectedAulaMatricula.nivel} ${selectedAulaMatricula.grado} ${selectedAulaMatricula.seccion} — ${anioMatricula}`);
         setTimeout(() => setMatriculaMensaje(''), 3000);
+    };
+
+    // Abre el modal de confirmacion de contrasena (primer paso, antes de mostrar el Authenticator)
+    const abrirVerificacion2FA = () => {
+        if (!nombreAlumnoMatricula.trim() || !selectedAulaMatricula) return;
+        if (aulaMatriculaLlena) return;
+        setErrorPassword2FA('');
+        setClaveVerificacion2FA('');
+        setShowPasswordModal(true);
+    };
+
+    // Valida la contrasena (SIMULACION: no hay backend, se acepta cualquier valor de al menos 4 caracteres)
+    // y, si es correcta, pasa al segundo paso: mostrar el Google Authenticator (QR o secreto) + input del codigo.
+    const confirmarPassword2FA = (e) => {
+        e.preventDefault();
+        if (!claveVerificacion2FA.trim()) {
+            setErrorPassword2FA('Ingresa tu contraseña para continuar.');
+            return;
+        }
+        if (claveVerificacion2FA.trim().length < 4) {
+            setErrorPassword2FA('Contraseña incorrecta.');
+            return;
+        }
+
+        setShowPasswordModal(false);
+        setClaveVerificacion2FA('');
+        setError2FA('');
+        setCodigo2FAInput('');
+        setMetodo2FA('qr');
+        setCodigoActual2FA(generarCodigoTOTP());
+        setSegundosRestantes2FA(TOTP_STEP - (Math.floor(Date.now() / 1000) % TOTP_STEP));
+        setShow2FAModal(true);
+    };
+
+    // Copia el secreto manual de Google Authenticator al portapapeles
+    const copiarSecreto2FA = async () => {
+        try {
+            await navigator.clipboard.writeText(SECRETO_2FA_RAW);
+            setSecretoCopiado(true);
+            setTimeout(() => setSecretoCopiado(false), 2000);
+        } catch {
+            setSecretoCopiado(false);
+        }
+    };
+
+    // Valida el codigo ingresado contra el codigo TOTP vigente y, si coincide, matricula
+    const confirmarCodigo2FA = (e) => {
+        e.preventDefault();
+        if (codigo2FAInput.trim() !== codigoActual2FA) {
+            setError2FA('Código incorrecto. Revisa tu app Google Authenticator e inténtalo de nuevo.');
+            return;
+        }
+        setShow2FAModal(false);
+        matricularAlumno();
     };
 
     
@@ -862,7 +963,7 @@ const deudaPendiente2025 = historialPagosDetalle
                                     className="matricular-btn"
                                     type="button"
                                     disabled={aulaMatriculaLlena}
-                                    onClick={matricularAlumno}
+                                    onClick={abrirVerificacion2FA}
                                 >
                                     <IconPersonPlus /> Matricular
                                 </button>
@@ -871,6 +972,160 @@ const deudaPendiente2025 = historialPagosDetalle
                                     <p style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: '#16a34a', fontWeight: 600 }}>
                                         {matriculaMensaje}
                                     </p>
+                                )}
+
+                                {showPasswordModal && (
+                                    <div
+                                        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+                                        onClick={() => setShowPasswordModal(false)}
+                                    >
+                                        <form
+                                            className="perm-box"
+                                            style={{ background: 'white', width: '380px', padding: '1.25rem' }}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onSubmit={confirmarPassword2FA}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                                <h3 className="section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                    <IconShieldCheck /> Confirma tu identidad
+                                                </h3>
+                                                <button type="button" className="icon-btn" onClick={() => setShowPasswordModal(false)}>✕</button>
+                                            </div>
+
+                                            <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: 0, marginBottom: '1rem' }}>
+                                                Por seguridad, antes de matricular a <strong>{nombreAlumnoMatricula.trim()}</strong> ingresa tu contraseña de secretaria.
+                                            </p>
+
+                                            <div className="field-group">
+                                                <label className="field-label">Contraseña</label>
+                                                <input
+                                                    type="password"
+                                                    className="readonly-input"
+                                                    placeholder="Tu contraseña"
+                                                    value={claveVerificacion2FA}
+                                                    onChange={(e) => setClaveVerificacion2FA(e.target.value)}
+                                                    autoFocus
+                                                />
+                                            </div>
+
+                                            {errorPassword2FA && (
+                                                <p style={{ color: '#dc2626', fontSize: '0.85rem', margin: '0 0 0.75rem 0' }}>{errorPassword2FA}</p>
+                                            )}
+
+                                            <button type="submit" className="matricular-btn">
+                                                Continuar →
+                                            </button>
+                                        </form>
+                                    </div>
+                                )}
+
+                                {show2FAModal && (
+                                    <div
+                                        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+                                        onClick={() => setShow2FAModal(false)}
+                                    >
+                                        <form
+                                            className="perm-box"
+                                            style={{ background: 'white', width: '400px', padding: '1.25rem' }}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onSubmit={confirmarCodigo2FA}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                                <h3 className="section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                    <IconShieldCheck /> Google Authenticator
+                                                </h3>
+                                                <button type="button" className="icon-btn" onClick={() => setShow2FAModal(false)}>✕</button>
+                                            </div>
+
+                                            <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: 0, marginBottom: '0.85rem' }}>
+                                                Confirma la matrícula de <strong>{nombreAlumnoMatricula.trim()}</strong> con el código de tu app de autenticación.
+                                            </p>
+
+                                            <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.85rem' }}>
+                                                <button
+                                                    type="button"
+                                                    className="btn-primary-outline"
+                                                    style={{ flex: 1, ...(metodo2FA === 'qr' ? { background: '#eff6ff', borderColor: '#93c5fd', color: '#1d4ed8', fontWeight: 600 } : {}) }}
+                                                    onClick={() => setMetodo2FA('qr')}
+                                                >
+                                                    Escanear QR
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="btn-primary-outline"
+                                                    style={{ flex: 1, ...(metodo2FA === 'secreto' ? { background: '#eff6ff', borderColor: '#93c5fd', color: '#1d4ed8', fontWeight: 600 } : {}) }}
+                                                    onClick={() => setMetodo2FA('secreto')}
+                                                >
+                                                    Ingresar clave
+                                                </button>
+                                            </div>
+
+                                            {metodo2FA === 'qr' ? (
+                                                <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                                                    <img
+                                                        src={QR_2FA_URL}
+                                                        width={160}
+                                                        height={160}
+                                                        alt="Código QR para Google Authenticator"
+                                                        style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '0.5rem' }}
+                                                    />
+                                                    <p style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '0.5rem', marginBottom: 0 }}>
+                                                        Escanéalo con Google Authenticator, Authy u otra app TOTP.
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="perm-box" style={{ background: '#f9fafb', marginBottom: '1rem', textAlign: 'center' }}>
+                                                    <p style={{ fontSize: '0.68rem', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.03em', margin: '0 0 0.4rem 0' }}>
+                                                        Clave secreta · cuenta {CUENTA_2FA}
+                                                    </p>
+                                                    <p style={{ fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.15em', fontSize: '1.05rem', margin: '0 0 0.65rem 0', color: '#111827' }}>
+                                                        {SECRETO_2FA_FORMATEADO}
+                                                    </p>
+                                                    <button type="button" className="btn-primary-outline" onClick={copiarSecreto2FA}>
+                                                        {secretoCopiado ? '✓ Copiado' : 'Copiar clave'}
+                                                    </button>
+                                                    <p style={{ fontSize: '0.7rem', color: '#9ca3af', margin: '0.65rem 0 0 0' }}>
+                                                        Ingrésala manualmente en tu app como cuenta "basada en tiempo".
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            <div className="perm-box" style={{ textAlign: 'center', marginBottom: '1rem', background: '#f9fafb' }}>
+                                                <p style={{ fontSize: '0.7rem', color: '#9ca3af', margin: '0 0 0.3rem 0', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                                    Modo demo — código actual de Authenticator
+                                                </p>
+                                                <p style={{ fontSize: '1.5rem', fontWeight: 700, letterSpacing: '0.2em', margin: 0, color: '#111827' }}>
+                                                    {codigoActual2FA}
+                                                </p>
+                                                <p style={{ fontSize: '0.72rem', color: '#9ca3af', margin: '0.3rem 0 0 0' }}>
+                                                    se renueva en {segundosRestantes2FA}s
+                                                </p>
+                                            </div>
+
+                                            <div className="field-group">
+                                                <label className="field-label">Código de verificación</label>
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    maxLength={6}
+                                                    className="readonly-input"
+                                                    placeholder="000000"
+                                                    style={{ textAlign: 'center', letterSpacing: '0.3em', fontSize: '1.1rem' }}
+                                                    value={codigo2FAInput}
+                                                    onChange={(e) => setCodigo2FAInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                                    autoFocus
+                                                />
+                                            </div>
+
+                                            {error2FA && (
+                                                <p style={{ color: '#dc2626', fontSize: '0.85rem', margin: '0 0 0.75rem 0' }}>{error2FA}</p>
+                                            )}
+
+                                            <button type="submit" className="matricular-btn">
+                                                <IconShieldCheck /> Verificar y matricular
+                                            </button>
+                                        </form>
+                                    </div>
                                 )}
                             </main>
 
@@ -1797,14 +2052,6 @@ const deudaPendiente2025 = historialPagosDetalle
                                         onChange={(e) => setNewConcepto({ ...newConcepto, monto: e.target.value })}
                                         required
                                         style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', width: '110px' }}
-                                    />
-                                    <input
-                                        type="number"
-                                        placeholder="Orden"
-                                        value={newConcepto.orden}
-                                        onChange={(e) => setNewConcepto({ ...newConcepto, orden: e.target.value })}
-                                        required
-                                        style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', width: '80px' }}
                                     />
                                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.875rem' }}>
                                         <input
