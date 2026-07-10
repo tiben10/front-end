@@ -205,7 +205,7 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
     const [claveError, setClaveError] = useState('');
     const [claveExito, setClaveExito] = useState(false);
     const [showNewAulaForm, setShowNewAulaForm] = useState(false);
-    const [newAula, setNewAula] = useState({ nivel: 'Inicial', grado: '', seccion: '', anio: '2026' });
+    const [newAula, setNewAula] = useState({ nivel: 'Inicial', grado: '', seccion: '', anio: '2026', cupo: '25' });
     const [newAulaError, setNewAulaError] = useState('');
 
     
@@ -380,6 +380,7 @@ const guardarNuevoAlumno = (e) => {
     });
 
     setShowNuevoAlumnoModal(false);
+    setActiveTab('aulas');
 };   
     
     const crearAula = (e) => {
@@ -388,6 +389,7 @@ const guardarNuevoAlumno = (e) => {
 
         const gradoLimpio = newAula.grado.trim();
         const seccionLimpia = newAula.seccion.trim().toUpperCase();
+        const cupoNumero = Number(newAula.cupo);
 
         if (!gradoLimpio) {
             setNewAulaError('El grado es obligatorio (ej. "1°" o "3 años").');
@@ -395,6 +397,10 @@ const guardarNuevoAlumno = (e) => {
         }
         if (!seccionLimpia) {
             setNewAulaError('La sección es obligatoria (ej. "A").');
+            return;
+        }
+        if (!newAula.cupo || isNaN(cupoNumero) || cupoNumero <= 0) {
+            setNewAulaError('El cupo debe ser un número mayor a 0.');
             return;
         }
 
@@ -416,7 +422,7 @@ const guardarNuevoAlumno = (e) => {
             grado: gradoLimpio,
             seccion: seccionLimpia,
             alumnos: 0, 
-            cupo: 25, 
+            cupo: cupoNumero, 
             estado: 'disponible',
             anio: newAula.anio
         };
@@ -426,7 +432,7 @@ const guardarNuevoAlumno = (e) => {
         setAnioAcademico(newAula.anio); 
         setNivelFiltro('Todos');
 
-        setNewAula({ nivel: 'Inicial', grado: '', seccion: '', anio: newAula.anio });
+        setNewAula({ nivel: 'Inicial', grado: '', seccion: '', anio: newAula.anio, cupo: '25' });
         setShowNewAulaForm(false);
     };
 
@@ -1462,7 +1468,15 @@ const deudaPendiente2025 = historialPagosDetalle
                                             <option value="2025">2025</option>
                                             <option value="2024">2024</option>
                                         </select>
-                                        <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>Cupo por defecto: 25</span>
+                                        <input
+                                            type="number"
+                                            placeholder="Cupo"
+                                            min="1"
+                                            value={newAula.cupo}
+                                            onChange={(e) => setNewAula({ ...newAula, cupo: e.target.value })}
+                                            required
+                                            style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', width: '90px' }}
+                                        />
 
                                         {newAulaError && (
                                             <p style={{ color: '#dc2626', fontSize: '0.85rem', margin: 0, width: '100%' }}>{newAulaError}</p>
