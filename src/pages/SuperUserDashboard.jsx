@@ -6,7 +6,7 @@ import PermissionTree from './PermissionTree';
 import { decodeJwt } from '../services/jwt';
 import { logout } from '../services/authService';
 import { listarUsuarios, crearUsuario as crearUsuarioApi, eliminarUsuario as eliminarUsuarioApi, cambiarPassword, restablecerPassword } from '../services/usuarioService';
-// import { obtenerPermisosPorRol, aplicarPermisos } from '../services/permisoService'; // no se usa: modo simulado
+import { obtenerPermisosPorRol, aplicarPermisos } from '../services/permisoService'; // no se usa: modo simulado
  import { rolService, funcionalidadService } from '../services/catalogoService'; // no se usa: modo simulado
 import { listarAuditoriaReciente, obtenerFiltrosAuditoria, buscarAuditoria } from '../services/auditoriaService';
 import { obtenerParametros } from '../services/parametroService';
@@ -203,15 +203,30 @@ const SuperUserDashboard = () => {
     const cargarPermisosDeRol = useCallback(async (idRol) => {
         if (!idRol || allFuncs.length === 0) return;
         setLoadingRolePerms(true);
-        // SIMULACION: no hay backend, todos los permisos parten vacios (todo sin marcar)
-        await new Promise(resolve => setTimeout(resolve, 150));
+        try {
+        const permisosGuardados = await obtenerPermisosPorRol(idRol);
         const mapa = {};
         allFuncs.forEach(func => {
-            mapa[func.idFuncionalidad] = { ...PERMISOS_VACIOS };
+            const guardado = permisosGuardados.find(
+                p => p.funcionalidad?.idFuncionalidad === func.idFuncionalidad
+            );
+            mapa[func.idFuncionalidad] = guardado
+                ? {
+                    ver: guardado.ver,
+                    crear: guardado.crear,
+                    editar: guardado.editar,
+                    eliminar: guardado.eliminar,
+                    imprimir: guardado.imprimir
+                }
+                : { ...PERMISOS_VACIOS };
         });
         setPermissionsByRole(prev => ({ ...prev, [idRol]: mapa }));
+    } catch (err) {
+        console.error('Error cargando permisos:', err);
+    } finally {
         setLoadingRolePerms(false);
-    }, [allFuncs]);
+    }
+}, [allFuncs]);
 
     useEffect(() => {
         if (!selectedRoleForPerms) return;
@@ -252,9 +267,13 @@ const SuperUserDashboard = () => {
     const handleToggleUser = (funcId, action = 'ver') => handleTogglePermission(selectedUser?.rol?.idRol, funcId, action);
 
     const guardarPermisosDeRol = async (idRol) => {
-        // SIMULACION: no hay backend, solo esperamos un momento para que se sienta real
-        await new Promise(resolve => setTimeout(resolve, 300));
-    };
+        const permisosDelRol = permissionsByRole[idRol] || {};
+    const permisos = allFuncs.map(func => ({
+        idFuncionalidad: func.idFuncionalidad,
+        ...(permisosDelRol[func.idFuncionalidad] || PERMISOS_VACIOS)
+    }));
+    await aplicarPermisos(idRol, permisos);
+};
 
     const applyUserPermissions = async () => {
         if (!selectedUser?.rol?.idRol) return;
