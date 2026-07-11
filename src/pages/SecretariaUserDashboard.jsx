@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import '../Styles/Dashboard.css';
 import { useTabHistory } from '../hooks/useTabHistory';
+import { cambiarPassword } from '../services/usuarioService';
 
 const TOTP_STEP = 30; // segundos que dura cada codigo, igual que Google Authenticator
 
@@ -486,7 +487,7 @@ const guardarNuevoAlumno = (e) => {
     };
 
     
-    const cambiarClave = (e) => {
+    const cambiarClave = async (e) => {
         e.preventDefault();
         setClaveError('');
         setClaveExito(false);
@@ -508,13 +509,21 @@ const guardarNuevoAlumno = (e) => {
             return;
         }
 
+        try {
+        await cambiarPassword({ passwordActual: claveActual, passwordNueva: claveNueva });
         setClaveExito(true);
         setClaveActual('');
         setClaveNueva('');
         setClaveConfirmar('');
         setTimeout(() => setClaveExito(false), 3000);
-    };
-
+    } catch (err) {
+        setClaveError(
+            err.response?.status === 401 || err.response?.status === 403
+                ? 'La contraseña actual no es correcta.'
+                : 'No se pudo conectar con el servidor.'
+        );
+    }
+};
     
     const selectedAulaMatricula = aulas.find(a => a.id === selectedAulaMatriculaId) || null;
     const aulaMatriculaLlena = selectedAulaMatricula?.estado === 'llena';
