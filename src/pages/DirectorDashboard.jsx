@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../Styles/Dashboard.css';
 import { useTabHistory } from '../hooks/useTabHistory';
 import { cambiarPassword } from '../services/usuarioService';
+import { logout } from '../services/authService';
 
 const matriculasRecientes = [
     { id: '001', alumno: 'Chinga Ramos, Carlos', aula: 'Sec. 1° A', fecha: '10/03/2026', estado: 'activa', registradoPor: 'secretaria01' },
@@ -17,6 +19,7 @@ const estadoMatriculaClass = (estado) => {
     }
 };
 const DirectorDashboard = () => {
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('registros');
     useTabHistory(activeTab, setActiveTab);
     const [claveActual, setClaveActual] = useState('');
@@ -64,6 +67,11 @@ const cambiarClave = async () => {
     }
 };
 
+    const handleLogout = () => {
+        logout();
+        navigate('/');
+    };
+
     return (
         <div className="dash-wrapper">
             <div className="dash-title-top">DIRECTOR — CONSULTA DE REGISTROS</div>
@@ -79,6 +87,10 @@ const cambiarClave = async () => {
                         <span className="user-name">Juan Ríos</span>
                         <span className="role-badge role-di">solo lectura</span>
                     </div>
+                    <button className="logout-btn" onClick={handleLogout} title="Cerrar sesión">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        Cerrar sesión
+                    </button>
                 </header>
                 <div className="dash-body director-body">
                     <aside className="dash-sidebar">

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../Styles/Dashboard.css';
 import { useTabHistory } from '../hooks/useTabHistory';
 import { cambiarPassword } from '../services/usuarioService';
+import { logout } from '../services/authService';
 
 const TOTP_STEP = 30; // segundos que dura cada codigo, igual que Google Authenticator
 
@@ -197,6 +199,7 @@ const tituloSuperiorPorTab = {
 };
 
 const SecretariaUserDashboard = () => {
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('matricula');
     useTabHistory(activeTab, setActiveTab);
     const [aulas, setAulas] = useState(mockAulas);
@@ -756,6 +759,11 @@ const deudaPendiente2025 = historialPagosDetalle
         setTimeout(() => setReciboMensaje(''), 3000);
     };
 
+    const handleLogout = () => {
+        logout();
+        navigate('/');
+    };
+
     return (
         <div className="dash-wrapper">
             <div className="dash-title-top">{tituloSuperiorPorTab[activeTab] || 'SECRETARÍA'}</div>
@@ -771,6 +779,10 @@ const deudaPendiente2025 = historialPagosDetalle
                         <span className="user-name">María Torres</span>
                         <span className="role-badge role-se">secretaria</span>
                     </div>
+                    <button className="logout-btn" onClick={handleLogout} title="Cerrar sesión">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        Cerrar sesión
+                    </button>
                 </header>
 
                 <div className="dash-body">
