@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import '../Styles/Login.css';
 import { useNavigate } from 'react-router-dom';
-//import { login } from '../services/authService';
+import { login } from '../services/authService';
 import Swal from 'sweetalert2';
 
 const LoginIcon = () => (
@@ -24,7 +24,7 @@ const ProfileCard = ({ profile }) => {
             return;
         }
         setLoading(true);
-        /*try {
+        try {
             const claims = await login(username, password);
             const rol = claims?.rol?.toUpperCase();
 
@@ -38,10 +38,10 @@ const ProfileCard = ({ profile }) => {
             Swal.fire('Error', msg, 'error');
         } finally {
             setLoading(false);
-        }*/
+        }
        // BYPASS: login falso, no llama al backend
-        localStorage.setItem('token', 'fake-token');
-        localStorage.setItem('role', profile.role.toUpperCase());
+        //localStorage.setItem('token', 'fake-token');
+        //localStorage.setItem('role', profile.role.toUpperCase());
 
         const rol = profile.role.toUpperCase();
         // replace: true saca el login del historial del navegador, para que el botón "atrás"

@@ -5,9 +5,9 @@ import '../Styles/Dashboard.css'
 import PermissionTree from './PermissionTree'; 
 import { decodeJwt } from '../services/jwt';
 import { logout } from '../services/authService';
-import { crearUsuario as crearUsuarioApi, eliminarUsuario as eliminarUsuarioApi, cambiarPassword, restablecerPassword } from '../services/usuarioService';
+import { listarUsuarios, crearUsuario as crearUsuarioApi, eliminarUsuario as eliminarUsuarioApi, cambiarPassword, restablecerPassword } from '../services/usuarioService';
 // import { obtenerPermisosPorRol, aplicarPermisos } from '../services/permisoService'; // no se usa: modo simulado
-// import { rolService, funcionalidadService } from '../services/catalogoService'; // no se usa: modo simulado
+ import { rolService, funcionalidadService } from '../services/catalogoService'; // no se usa: modo simulado
 import { listarAuditoriaReciente, obtenerFiltrosAuditoria, buscarAuditoria } from '../services/auditoriaService';
 import { obtenerParametros } from '../services/parametroService';
 import { useTabHistory } from '../hooks/useTabHistory';
@@ -15,20 +15,20 @@ import { useTabHistory } from '../hooks/useTabHistory';
 const PERMISOS_VACIOS = { ver: false, crear: false, editar: false, eliminar: false, imprimir: false };
 
 // ===== DATOS SIMULADOS (sin backend) =====
-const MOCK_ROLES = [
+/*const MOCK_ROLES = [
     { idRol: 1, nombreRol: 'SUPERUSUARIO', estado: true },
     { idRol: 2, nombreRol: 'DIRECTOR', estado: true },
     { idRol: 3, nombreRol: 'SECRETARIA', estado: true }
-];
+];*/
 
-const MOCK_USUARIOS = [
+/*const MOCK_USUARIOS = [
     { idUsuario: 1, usuario: 'Admin', doc: '00000001', estado: true, rol: MOCK_ROLES[0] },
     { idUsuario: 2, usuario: 'Juan Ríos', doc: '11111111', estado: true, rol: MOCK_ROLES[1] },
     { idUsuario: 3, usuario: 'María Torres', doc: '22222222', estado: true, rol: MOCK_ROLES[2] },
     { idUsuario: 4, usuario: 'Luis Paz', doc: '33333333', estado: true, rol: MOCK_ROLES[2] }
-];
+];*/
 
-const MOCK_FUNCIONALIDADES = [
+/*const MOCK_FUNCIONALIDADES = [
     { idFuncionalidad: 1, nombre: 'Usuarios' },
     { idFuncionalidad: 2, nombre: 'Roles' },
     { idFuncionalidad: 3, nombre: 'Permisos' },
@@ -39,7 +39,7 @@ const MOCK_FUNCIONALIDADES = [
     { idFuncionalidad: 8, nombre: 'Aulas' },
     { idFuncionalidad: 9, nombre: 'Pagos' },
     { idFuncionalidad: 10, nombre: 'Conceptos' }
-];
+];*/
 
 // ===== REPORTES (submenu + datos simulados de vacantes) =====
 const REPORTES_MENU = [
@@ -167,12 +167,28 @@ const SuperUserDashboard = () => {
             setLoading(true);
             setError(null);
             // SIMULACION: en vez de llamar al backend, usamos datos mock
-            await new Promise(resolve => setTimeout(resolve, 300));
+            /*await new Promise(resolve => setTimeout(resolve, 300));
             setUsuarios(MOCK_USUARIOS);
             setRoles(MOCK_ROLES);
             setAllFuncs(MOCK_FUNCIONALIDADES);
             setLoading(false);
-        };
+        };*/
+             try {
+        const [usuariosData, rolesData, funcsData] = await Promise.all([
+            listarUsuarios(),
+            rolService.listar(),
+            funcionalidadService.listar()
+        ]);
+        setUsuarios(usuariosData);
+        setRoles(rolesData);
+        setAllFuncs(funcsData);
+    } catch (err) {
+    console.error('Error cargando datos:', err);  // <-- agrega esta línea
+    setError('No se pudieron cargar los datos del servidor.');
+} finally {
+        setLoading(false);
+    }
+};
 
         cargarDatos();
     }, []);
