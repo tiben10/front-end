@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { rolService, funcionalidadService } from '../services/catalogoService';
+import { obtenerPermisosPorRol } from '../services/permisoService';
 import { useNavigate } from 'react-router-dom';
 import '../Styles/Dashboard.css';
 import { useTabHistory } from '../hooks/useTabHistory';
@@ -27,6 +29,45 @@ const [claveNueva, setClaveNueva] = useState('');
 const [confirmarClave, setConfirmarClave] = useState('');
 const [claveError, setClaveError] = useState('');
 const [claveExito, setClaveExito] = useState(false);
+
+const [permisosMenu, setPermisosMenu] = useState({ matricula: false, pagos: false, alumnos: false });
+const [loadingPermisos, setLoadingPermisos] = useState(true);
+
+useEffect(() => {
+    const cargarPermisosMenu = async () => {
+        setLoadingPermisos(true);
+        try {
+            const [roles, funcs] = await Promise.all([
+                rolService.listar(),
+                funcionalidadService.listar()
+            ]);
+            const rolDirector = roles.find(r => r.nombreRol?.toUpperCase() === 'DIRECTOR');
+            if (!rolDirector) return;
+
+            const permisosGuardados = await obtenerPermisosPorRol(rolDirector.idRol);
+
+            const tienePermisoVer = (palabraClave) => {
+                const func = funcs.find(f => f.nombre?.toLowerCase().includes(palabraClave));
+                if (!func) return false;
+                const permiso = permisosGuardados.find(
+                    p => p.funcionalidad?.idFuncionalidad === func.idFuncionalidad
+                );
+                return !!permiso?.ver;
+            };
+
+            setPermisosMenu({
+                matricula: tienePermisoVer('matric'),
+                pagos: tienePermisoVer('pago'),
+                alumnos: tienePermisoVer('alumno')
+            });
+        } catch (err) {
+            console.error('Error cargando permisos del menu:', err);
+        } finally {
+            setLoadingPermisos(false);
+        }
+    };
+    cargarPermisosMenu();
+}, []);
 
 const cambiarClave = async () => {
     setClaveError('');
@@ -103,26 +144,31 @@ const cambiarClave = async () => {
                         </button>
 
                         <button
-                            className="sidebar-item disabled"
-                            disabled
-                        >
-                            🎓 Matrícula
-                        </button>
+    className={`sidebar-item ${!permisosMenu.matricula ? 'disabled' : activeTab === 'matricula' ? 'active' : ''}`}
+    disabled={!permisosMenu.matricula || loadingPermisos}
+    onClick={() => setActiveTab('matricula')}
+    title={!permisosMenu.matricula ? 'No tienes permiso para ver esta sección' : ''}
+>
+    🎓 Matrícula
+</button>
 
-                        <button
-                            className="sidebar-item disabled"
-                            disabled
-                        >
-                            💳 Pagos
-                        </button>
+<button
+    className={`sidebar-item ${!permisosMenu.pagos ? 'disabled' : activeTab === 'pagos' ? 'active' : ''}`}
+    disabled={!permisosMenu.pagos || loadingPermisos}
+    onClick={() => setActiveTab('pagos')}
+    title={!permisosMenu.pagos ? 'No tienes permiso para ver esta sección' : ''}
+>
+    💳 Pagos
+</button>
 
-                        <button
-                            className="sidebar-item disabled"
-                            disabled
-                        >
-                            👨‍🎓 Alumnos
-                        </button>
-
+<button
+    className={`sidebar-item ${!permisosMenu.alumnos ? 'disabled' : activeTab === 'alumnos' ? 'active' : ''}`}
+    disabled={!permisosMenu.alumnos || loadingPermisos}
+    onClick={() => setActiveTab('alumnos')}
+    title={!permisosMenu.alumnos ? 'No tienes permiso para ver esta sección' : ''}
+>
+    👨‍🎓 Alumnos
+</button>
                         <button
                             className={`sidebar-item ${activeTab === 'clave' ? 'active' : ''}`}
                             onClick={() => setActiveTab('clave')}
