@@ -11,6 +11,7 @@ import { obtenerPermisosPorRol, aplicarPermisos } from '../services/permisoServi
 import { listarAuditoriaReciente, obtenerFiltrosAuditoria, buscarAuditoria } from '../services/auditoriaService';
 import { obtenerParametros } from '../services/parametroService';
 import { useTabHistory } from '../hooks/useTabHistory';
+import Reportes from '../components/Reportes';
 
 const PERMISOS_VACIOS = { ver: false, crear: false, editar: false, eliminar: false, imprimir: false };
 
@@ -41,52 +42,7 @@ const PERMISOS_VACIOS = { ver: false, crear: false, editar: false, eliminar: fal
     { idFuncionalidad: 10, nombre: 'Conceptos' }
 ];*/
 
-// ===== REPORTES (submenu + datos simulados de vacantes) =====
-const REPORTES_MENU = [
-    { key: 'matricula', label: 'Reporte de Matrícula' },
-    { key: 'vacantes', label: 'Reporte de Vacantes' },
-    { key: 'deudas', label: 'Reporte de Deudas' },
-    { key: 'caja', label: 'Reporte de Caja' }
-];
 
-const MOCK_VACANTES = [
-    { aula: 1, nivel: 'Inicial', grado: '3 años', seccion: 'A', ocupados: 20, cupo: 25 },
-    { aula: 2, nivel: 'Inicial', grado: '3 años', seccion: 'B', ocupados: 18, cupo: 25 },
-    { aula: 3, nivel: 'Primaria', grado: '1°', seccion: 'A', ocupados: 30, cupo: 35 },
-    { aula: 4, nivel: 'Secundaria', grado: '1°', seccion: 'A', ocupados: 35, cupo: 35 }
-];
-
-const MOCK_MATRICULA = [
-    { aula: 'A', nivel: 'Inicial', grado: '3 años', matriculados: 20, cupoMax: 25 },
-    { aula: 'B', nivel: 'Inicial', grado: '3 años', matriculados: 18, cupoMax: 25 },
-    { aula: 'A', nivel: 'Primaria', grado: '1°', matriculados: 30, cupoMax: 35 },
-    { aula: 'A', nivel: 'Secundaria', grado: '1°', matriculados: 35, cupoMax: 35 }
-];
-
-const MOCK_DEUDAS = [
-    { alumno: 'Chinga Ramos, Carlos', doc: '75412638', concepto: 'Marzo 2026', monto: 100, vencimiento: '15/04/2026', diasAtraso: 85, estado: 'Pendiente' },
-    { alumno: 'Chinga Ramos, Carlos', doc: '75412638', concepto: 'Abril 2026', monto: 100, vencimiento: '15/05/2026', diasAtraso: 55, estado: 'Bloqueado' },
-    { alumno: 'López Díaz, Lucía', doc: '47112233', concepto: 'Abril 2026', monto: 100, vencimiento: '15/05/2026', diasAtraso: 55, estado: 'Pendiente' },
-    { alumno: 'Quispe Meza, Pedro', doc: '52009871', concepto: 'Marzo 2026', monto: 100, vencimiento: '15/04/2026', diasAtraso: 85, estado: 'Pendiente' }
-];
-
-const MOCK_CAJA_INGRESOS = [
-    { mes: 'Enero', concepto: 'Matrículas', cantPagos: 15, total: 3000 },
-    { mes: 'Febrero', concepto: 'Matrículas', cantPagos: 22, total: 4400 },
-    { mes: 'Marzo', concepto: 'Cuotas mensuales', cantPagos: 18, total: 1800 },
-    { mes: 'Abril', concepto: 'Cuotas mensuales', cantPagos: 12, total: 1200 },
-    { mes: 'Mayo', concepto: 'Cuotas mensuales', cantPagos: 10, total: 1000 },
-    { mes: 'Junio', concepto: 'Cuotas mensuales', cantPagos: 8, total: 800 }
-];
-
-const formatSoles = (n) => `S/ ${n.toLocaleString('es-PE')}`;
-
-const getEstadoVacante = (ocupados, cupo) => {
-    const vacantes = cupo - ocupados;
-    if (vacantes <= 0) return { label: 'Llena', className: 'estado-llena', color: '#b91c1c' };
-    if (ocupados / cupo >= 0.85) return { label: 'Casi llena', className: 'estado-casi', color: '#b45309' };
-    return { label: 'Disponible', className: 'estado-disponible', color: '#15803d' };
-};
 
 const SuperUserDashboard = () => {
     const navigate = useNavigate();
@@ -120,11 +76,6 @@ const SuperUserDashboard = () => {
     const [roleSavedMessage, setRoleSavedMessage] = useState(false);
     const [savedMessage, setSavedMessage] = useState(false);
 
-    const [reporteActivo, setReporteActivo] = useState('vacantes');
-    const [anioReporte, setAnioReporte] = useState('2026');
-    const [nivelFiltro, setNivelFiltro] = useState('todos');
-    const [estadoDeudaFiltro, setEstadoDeudaFiltro] = useState('todos');
-    const [mesCajaFiltro, setMesCajaFiltro] = useState('todos');
 
     const [ownCurrentPass, setOwnCurrentPass] = useState('');
     const [ownNewPass, setOwnNewPass] = useState('');
@@ -145,18 +96,6 @@ const SuperUserDashboard = () => {
     const [createError, setCreateError] = useState('');
 
     const rolesDisponibles = roles.filter(r => r.nombreRol?.toUpperCase() !== 'SUPERUSUARIO' && r.estado);
-
-    const nivelesMatricula = [...new Set(MOCK_MATRICULA.map(m => m.nivel))];
-    const matriculaFiltrada = nivelFiltro === 'todos' ? MOCK_MATRICULA : MOCK_MATRICULA.filter(m => m.nivel === nivelFiltro);
-
-    const estadosDeuda = [...new Set(MOCK_DEUDAS.map(d => d.estado))];
-    const deudasFiltradas = estadoDeudaFiltro === 'todos' ? MOCK_DEUDAS : MOCK_DEUDAS.filter(d => d.estado === estadoDeudaFiltro);
-
-    const mesesCaja = [...new Set(MOCK_CAJA_INGRESOS.map(c => c.mes))];
-    const cajaFiltrada = mesCajaFiltro === 'todos' ? MOCK_CAJA_INGRESOS : MOCK_CAJA_INGRESOS.filter(c => c.mes === mesCajaFiltro);
-    const cajaTotalIngresos = cajaFiltrada.reduce((acc, c) => acc + c.total, 0);
-    const cajaTotalPagos = cajaFiltrada.reduce((acc, c) => acc + c.cantPagos, 0);
-    const cajaPromedioPorPago = cajaTotalPagos > 0 ? Math.round(cajaTotalIngresos / cajaTotalPagos) : 0;
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -367,65 +306,6 @@ const SuperUserDashboard = () => {
             case 'LOGIN': return 'op-login';
             default: return 'op-default';
         }
-    };
-
-    const exportarVacantesCSV = () => {
-        const encabezado = ['Aula', 'Nivel', 'Grado', 'Sección', 'Ocupados', 'Cupo', 'Vacantes', 'Estado'];
-        const filas = MOCK_VACANTES.map(v => {
-            const vacantes = v.cupo - v.ocupados;
-            const estado = getEstadoVacante(v.ocupados, v.cupo);
-            return [v.aula, v.nivel, v.grado, v.seccion, v.ocupados, v.cupo, vacantes, estado.label].join(',');
-        });
-        const csv = [encabezado.join(','), ...filas].join('\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `reporte-vacantes-${anioReporte}.csv`;
-        link.click();
-        URL.revokeObjectURL(url);
-    };
-
-    const exportarMatriculaCSV = () => {
-        const encabezado = ['Aula', 'Nivel', 'Grado', 'Matriculados', 'Cupo Máximo', '% Ocupación'];
-        const filas = matriculaFiltrada.map(m => {
-            const pct = Math.round((m.matriculados / m.cupoMax) * 100);
-            return [m.aula, m.nivel, m.grado, m.matriculados, m.cupoMax, `${pct}%`].join(',');
-        });
-        const csv = [encabezado.join(','), ...filas].join('\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `reporte-matricula-${anioReporte}.csv`;
-        link.click();
-        URL.revokeObjectURL(url);
-    };
-
-    const exportarDeudasCSV = () => {
-        const encabezado = ['Alumno', 'Documento', 'Concepto', 'Monto', 'Vencimiento', 'Días de Atraso', 'Estado'];
-        const filas = deudasFiltradas.map(d => [d.alumno, d.doc, d.concepto, d.monto, d.vencimiento, d.diasAtraso, d.estado].join(','));
-        const csv = [encabezado.join(','), ...filas].join('\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `reporte-deudas-${anioReporte}.csv`;
-        link.click();
-        URL.revokeObjectURL(url);
-    };
-
-    const exportarCajaCSV = () => {
-        const encabezado = ['Mes', 'Concepto', 'Cantidad de Pagos', 'Total (S/)'];
-        const filas = cajaFiltrada.map(c => [c.mes, c.concepto, c.cantPagos, c.total].join(','));
-        const csv = [encabezado.join(','), ...filas].join('\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `reporte-caja-${mesCajaFiltro === 'todos' ? anioReporte : mesCajaFiltro}.csv`;
-        link.click();
-        URL.revokeObjectURL(url);
     };
 
     const cargarAuditoria = useCallback(async () => {
@@ -1075,287 +955,7 @@ const SuperUserDashboard = () => {
                         </main>
                     ) : activeTab === 'reportes' ? (
                         <main className="dash-content dash-content-full">
-                            <h3 className="section-title" style={{ marginBottom: '1rem' }}>Reportes</h3>
-                            <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
-                                <nav className="reportes-menu">
-                                    {REPORTES_MENU.map(r => (
-                                        <button
-                                            key={r.key}
-                                            type="button"
-                                            className={`reportes-menu-item ${reporteActivo === r.key ? 'active' : ''}`}
-                                            onClick={() => setReporteActivo(r.key)}
-                                        >
-                                            {r.key === 'matricula' && (
-                                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-                                            )}
-                                            {r.key === 'vacantes' && (
-                                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
-                                            )}
-                                            {r.key === 'deudas' && (
-                                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                            )}
-                                            {r.key === 'caja' && (
-                                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-                                            )}
-                                            <span>{r.label}</span>
-                                        </button>
-                                    ))}
-                                </nav>
-
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    {reporteActivo === 'vacantes' ? (
-                                        <>
-                                            <div className="perm-box" style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
-                                                <div className="filter-group">
-                                                    <label>Año académico</label>
-                                                    <select className="filter-select" value={anioReporte} onChange={(e) => setAnioReporte(e.target.value)}>
-                                                        <option value="2026">2026</option>
-                                                        <option value="2025">2025</option>
-                                                    </select>
-                                                </div>
-                                                <button type="button" className="pagar-btn-solid" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={exportarVacantesCSV}>
-                                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                                    Exportar CSV
-                                                </button>
-                                            </div>
-
-                                            <div className="perm-box">
-                                                <p className="perm-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                    <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" strokeWidth="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
-                                                    Vacantes disponibles — {anioReporte}
-                                                </p>
-                                                <table className="users-table">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Aula</th><th>Nivel</th><th>Grado</th><th>Sección</th>
-                                                            <th>Ocupados</th><th>Cupo</th><th>Vacantes</th><th>Estado</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {MOCK_VACANTES.map(v => {
-                                                            const vacantes = v.cupo - v.ocupados;
-                                                            const estado = getEstadoVacante(v.ocupados, v.cupo);
-                                                            return (
-                                                                <tr key={v.aula}>
-                                                                    <td>{v.aula}</td>
-                                                                    <td>{v.nivel}</td>
-                                                                    <td>{v.grado}</td>
-                                                                    <td>{v.seccion}</td>
-                                                                    <td>{v.ocupados}</td>
-                                                                    <td>{v.cupo}</td>
-                                                                    <td style={{ fontWeight: 800, color: estado.color }}>{vacantes}</td>
-                                                                    <td><span className={`estado-badge ${estado.className}`}>{estado.label}</span></td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </tbody>
-                                                </table>
-                                                <p className="table-footer-note">
-                                                    ⓘ Total vacantes: <strong>{MOCK_VACANTES.reduce((acc, v) => acc + (v.cupo - v.ocupados), 0)}</strong>. Se recomienda abrir nuevas secciones si la demanda supera el 90% de ocupación.
-                                                </p>
-                                            </div>
-                                        </>
-                                    ) : reporteActivo === 'matricula' ? (
-                                        <>
-                                            <div className="perm-box" style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
-                                                <div className="filter-group">
-                                                    <label>Año académico</label>
-                                                    <select className="filter-select" value={anioReporte} onChange={(e) => setAnioReporte(e.target.value)}>
-                                                        <option value="2026">2026</option>
-                                                        <option value="2025">2025</option>
-                                                    </select>
-                                                </div>
-                                                <div className="filter-group">
-                                                    <label>Nivel</label>
-                                                    <select className="filter-select" value={nivelFiltro} onChange={(e) => setNivelFiltro(e.target.value)}>
-                                                        <option value="todos">Todos</option>
-                                                        {nivelesMatricula.map(n => (
-                                                            <option key={n} value={n}>{n}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <button type="button" className="pagar-btn-solid" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={exportarMatriculaCSV}>
-                                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                                    Exportar CSV
-                                                </button>
-                                            </div>
-
-                                            <div className="perm-box">
-                                                <p className="perm-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                    <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" strokeWidth="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-                                                    Matrícula por aula — {anioReporte}{nivelFiltro !== 'todos' ? ` · ${nivelFiltro}` : ''}
-                                                </p>
-                                                {matriculaFiltrada.length === 0 ? (
-                                                    <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>No hay aulas para el nivel seleccionado.</p>
-                                                ) : (
-                                                    <table className="users-table">
-                                                        <thead>
-                                                            <tr>
-                                                                <th>Aula</th><th>Nivel</th><th>Grado</th>
-                                                                <th>Matriculados</th><th>Cupo Máx.</th><th>Ocupación</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {matriculaFiltrada.map((m, idx) => {
-                                                                const pct = Math.round((m.matriculados / m.cupoMax) * 100);
-                                                                const fillClass = pct >= 100 ? 'fill-red' : pct >= 85 ? 'fill-amber' : 'fill-green';
-                                                                return (
-                                                                    <tr key={idx}>
-                                                                        <td>{m.aula}</td>
-                                                                        <td>{m.nivel}</td>
-                                                                        <td>{m.grado}</td>
-                                                                        <td>{m.matriculados}</td>
-                                                                        <td>{m.cupoMax}</td>
-                                                                        <td>
-                                                                            <div className="cupo-cell">
-                                                                                <span className="cupo-fraction">{pct}%</span>
-                                                                                <div className="cupo-bar-track">
-                                                                                    <div className={`cupo-bar-fill ${fillClass}`} style={{ width: `${Math.min(pct, 100)}%` }}></div>
-                                                                                </div>
-                                                                            </div>
-                                                                        </td>
-                                                                    </tr>
-                                                                );
-                                                            })}
-                                                        </tbody>
-                                                    </table>
-                                                )}
-                                                <p className="table-footer-note">
-                                                    ⓘ Total matriculados: <strong>{matriculaFiltrada.reduce((acc, m) => acc + m.matriculados, 0)}</strong> de <strong>{matriculaFiltrada.reduce((acc, m) => acc + m.cupoMax, 0)}</strong> vacantes {nivelFiltro !== 'todos' ? `en ${nivelFiltro}` : 'totales'}.
-                                                </p>
-                                            </div>
-                                        </>
-                                    ) : reporteActivo === 'deudas' ? (
-                                        <>
-                                            <div className="perm-box" style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
-                                                <div className="filter-group">
-                                                    <label>Año académico</label>
-                                                    <select className="filter-select" value={anioReporte} onChange={(e) => setAnioReporte(e.target.value)}>
-                                                        <option value="2026">2026</option>
-                                                        <option value="2025">2025</option>
-                                                    </select>
-                                                </div>
-                                                <div className="filter-group">
-                                                    <label>Estado</label>
-                                                    <select className="filter-select" value={estadoDeudaFiltro} onChange={(e) => setEstadoDeudaFiltro(e.target.value)}>
-                                                        <option value="todos">Todos</option>
-                                                        {estadosDeuda.map(e => (
-                                                            <option key={e} value={e}>{e}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <button type="button" className="pagar-btn-solid" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={exportarDeudasCSV}>
-                                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                                    Exportar CSV
-                                                </button>
-                                            </div>
-
-                                            <div className="perm-box">
-                                                <p className="perm-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                    <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" strokeWidth="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                                    Alumnos con deuda pendiente{estadoDeudaFiltro !== 'todos' ? ` · ${estadoDeudaFiltro.toLowerCase()}` : ''}
-                                                </p>
-                                                {deudasFiltradas.length === 0 ? (
-                                                    <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>No hay deudas con ese estado.</p>
-                                                ) : (
-                                                    <table className="pagos-table">
-                                                        <thead>
-                                                            <tr>
-                                                                <th>Alumno</th><th>Doc.</th><th>Concepto</th>
-                                                                <th>Monto</th><th>Vencimiento</th><th>Días atraso</th><th>Estado</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {deudasFiltradas.map((d, idx) => (
-                                                                <tr key={idx} className={d.estado === 'Bloqueado' ? 'pagos-row-bloqueado' : 'pagos-row-deuda'}>
-                                                                    <td>{d.alumno}</td>
-                                                                    <td className="doc-text">{d.doc}</td>
-                                                                    <td>{d.concepto}</td>
-                                                                    <td>{formatSoles(d.monto)}</td>
-                                                                    <td>{d.vencimiento}</td>
-                                                                    <td>{d.diasAtraso}</td>
-                                                                    <td>
-                                                                        <span className={d.estado === 'Bloqueado' ? 'estado-bloqueado-pill' : 'estado-deuda-pill'}>
-                                                                            {d.estado.toLowerCase()}
-                                                                        </span>
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                )}
-                                                <p className="table-footer-note">
-                                                    ⓘ Deuda total pendiente: <strong>{formatSoles(deudasFiltradas.reduce((acc, d) => acc + d.monto, 0))}</strong> en {deudasFiltradas.length} cuotas{estadoDeudaFiltro !== 'todos' ? ` (${estadoDeudaFiltro.toLowerCase()})` : ' vencidas'}.
-                                                </p>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="perm-box" style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
-                                                <div className="filter-group">
-                                                    <label>Periodo</label>
-                                                    <select className="filter-select" value={mesCajaFiltro} onChange={(e) => setMesCajaFiltro(e.target.value)}>
-                                                        <option value="todos">Todo el año</option>
-                                                        {mesesCaja.map(m => (
-                                                            <option key={m} value={m}>{m}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <button type="button" className="pagar-btn-solid" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={exportarCajaCSV}>
-                                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                                    Exportar CSV
-                                                </button>
-                                            </div>
-
-                                            <div className="director-summary-grid" style={{ marginBottom: '1.25rem' }}>
-                                                <div className="director-summary-card">
-                                                    <p>Ingresos totales{mesCajaFiltro !== 'todos' ? ` — ${mesCajaFiltro}` : ''}</p>
-                                                    <h1>{formatSoles(cajaTotalIngresos)}</h1>
-                                                </div>
-                                                <div className="director-summary-card">
-                                                    <p>Cantidad de pagos</p>
-                                                    <h1>{cajaTotalPagos}</h1>
-                                                </div>
-                                                <div className="director-summary-card">
-                                                    <p>Promedio por pago</p>
-                                                    <h1>{formatSoles(cajaPromedioPorPago)}</h1>
-                                                </div>
-                                            </div>
-
-                                            <div className="perm-box">
-                                                <p className="perm-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                    <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" strokeWidth="2" fill="none"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-                                                    Detalle de ingresos por mes
-                                                </p>
-                                                {cajaFiltrada.length === 0 ? (
-                                                    <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>No hay movimientos para ese periodo.</p>
-                                                ) : (
-                                                    <table className="users-table">
-                                                        <thead>
-                                                            <tr>
-                                                                <th>Mes</th><th>Concepto</th><th>Cant. Pagos</th><th>Total</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {cajaFiltrada.map((c, idx) => (
-                                                                <tr key={idx}>
-                                                                    <td>{c.mes}</td>
-                                                                    <td>{c.concepto}</td>
-                                                                    <td>{c.cantPagos}</td>
-                                                                    <td style={{ fontWeight: 600 }}>{formatSoles(c.total)}</td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                )}
-                                                <p className="table-footer-note">
-                                                    ⓘ Resumen generado a partir de los pagos registrados en caja{mesCajaFiltro !== 'todos' ? ` durante ${mesCajaFiltro}` : ' durante el año'}.
-                                                </p>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
+                            <Reportes />
                         </main>
                     ) : (
                         <main className="dash-content dash-content-full">

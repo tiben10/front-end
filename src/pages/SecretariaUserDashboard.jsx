@@ -4,6 +4,7 @@ import '../Styles/Dashboard.css';
 import { useTabHistory } from '../hooks/useTabHistory';
 import { cambiarPassword } from '../services/usuarioService';
 import { logout } from '../services/authService';
+import Reportes from '../components/Reportes';
 
 const TOTP_STEP = 30; // segundos que dura cada codigo, igual que Google Authenticator
 
@@ -188,13 +189,13 @@ const historialPorDefecto = [
     { anio: 2023, estado: 'al_dia', detalle: 'Al día' }
 ];
 
-
 const tituloSuperiorPorTab = {
     matricula: 'SECRETARÍA — PANEL PRINCIPAL (TODAS LAS OPERACIONES)',
     pagos: 'SECRETARÍA — PAGOS',
     alumnos: 'SECRETARÍA — ALUMNOS',
     aulas: 'SECRETARÍA — GESTIÓN ACADÉMICA',
     conceptos: 'SECRETARÍA — CONCEPTOS / TARIFARIO POR AÑO',
+    reportes: 'SECRETARÍA — REPORTES',
     clave: 'SECRETARÍA — CAMBIAR CLAVE'
 };
 
@@ -816,6 +817,13 @@ const deudaPendiente2025 = historialPagosDetalle
                             onClick={() => setActiveTab('conceptos')}
                         >
                             <IconConceptos /> Conceptos
+                        </button>
+                        <button
+                            className={`sidebar-item ${activeTab === 'reportes' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('reportes')}
+                        >
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20v-6"></path></svg>
+                            Reportes
                         </button>
                         <button
                             className={`sidebar-item ${activeTab === 'clave' ? 'active' : ''}`}
@@ -2089,6 +2097,10 @@ const deudaPendiente2025 = historialPagosDetalle
                                     </button>
                                 </form>
                             )}
+                        </main>
+                    ) : activeTab === 'reportes' ? (
+                        <main className="dash-content" style={{ flex: 1 }}>
+                            <Reportes />
                         </main>
                     ) : activeTab === 'clave' ? (
                         <main className="dash-content" style={{ flex: 1 }}>
