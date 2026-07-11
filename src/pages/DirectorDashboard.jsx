@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import '../Styles/Dashboard.css';
 import { useTabHistory } from '../hooks/useTabHistory';
+import { cambiarPassword } from '../services/usuarioService';
+
 const matriculasRecientes = [
     { id: '001', alumno: 'Chinga Ramos, Carlos', aula: 'Sec. 1° A', fecha: '10/03/2026', estado: 'activa', registradoPor: 'secretaria01' },
     { id: '002', alumno: 'López Díaz, Lucía', aula: 'Prim. 3° B', fecha: '11/03/2026', estado: 'activa', registradoPor: 'secretaria01' },
@@ -23,7 +25,7 @@ const [confirmarClave, setConfirmarClave] = useState('');
 const [claveError, setClaveError] = useState('');
 const [claveExito, setClaveExito] = useState(false);
 
-const cambiarClave = () => {
+const cambiarClave = async () => {
     setClaveError('');
     setClaveExito(false);
 
@@ -47,14 +49,19 @@ const cambiarClave = () => {
         return;
     }
 
-    setClaveExito(true);
-
-    
-    
-
-    setClaveActual('');
-    setClaveNueva('');
-    setConfirmarClave('');
+    try {
+        await cambiarPassword({ passwordActual: claveActual, passwordNueva: claveNueva });
+        setClaveExito(true);
+        setClaveActual('');
+        setClaveNueva('');
+        setConfirmarClave('');
+    } catch (err) {
+        setClaveError(
+            err.response?.status === 401 || err.response?.status === 403
+                ? 'La contraseña actual no es correcta.'
+                : 'No se pudo conectar con el servidor.'
+        );
+    }
 };
 
     return (
@@ -170,61 +177,50 @@ const cambiarClave = () => {
                                 </div>
                             </>
                         ) : activeTab === 'clave' ? (
-    <>
-        <h3 className="section-title">Mi clave</h3>
+    <main className="dash-content dash-content-full">
+        <h3 className="section-title">Cambiar Clave</h3>
 
-        <div className="perm-box" style={{ maxWidth: '420px' }}>
-            <div className="field-group">
-                <label className="field-label">Contraseña actual</label>
+        <div className="perm-box" style={{ marginBottom: '1.5rem' }}>
+            <p className="perm-subtitle">Mi clave (Director)</p>
+            <form
+                onSubmit={(e) => { e.preventDefault(); cambiarClave(); }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxWidth: '360px' }}
+            >
                 <input
                     type="password"
-                    className="readonly-input"
+                    placeholder="Contraseña actual"
                     value={claveActual}
                     onChange={(e) => setClaveActual(e.target.value)}
+                    style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
                 />
-            </div>
-
-            <div className="field-group">
-                <label className="field-label">Nueva contraseña</label>
                 <input
                     type="password"
-                    className="readonly-input"
+                    placeholder="Nueva contraseña"
                     value={claveNueva}
                     onChange={(e) => setClaveNueva(e.target.value)}
+                    style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
                 />
-            </div>
-
-            <div className="field-group">
-                <label className="field-label">Confirmar contraseña</label>
                 <input
                     type="password"
-                    className="readonly-input"
+                    placeholder="Confirmar nueva contraseña"
                     value={confirmarClave}
                     onChange={(e) => setConfirmarClave(e.target.value)}
+                    style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
                 />
-            </div>
-
-            {claveError && (
-                <p style={{ color: '#dc2626', fontSize: '0.85rem' }}>
-                    {claveError}
-                </p>
-            )}
-
-            {claveExito && (
-                <p style={{ color: '#16a34a', fontSize: '0.85rem' }}>
-                    ✓ Solicitud de cambio de clave lista para enviar al backend.
-                </p>
-            )}
-
-            <button
-                type="button"
-                className="apply-btn"
-                onClick={cambiarClave}
-            >
-                Cambiar clave
-            </button>
+                <button type="submit" className="apply-btn">
+                    ✓ Cambiar mi clave
+                </button>
+                {claveError && (
+                    <p style={{ color: '#dc2626', fontSize: '0.85rem', margin: 0 }}>{claveError}</p>
+                )}
+                {claveExito && (
+                    <p style={{ color: '#16a34a', fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>
+                        ✓ Contraseña actualizada correctamente.
+                    </p>
+                )}
+            </form>
         </div>
-    </>
+    </main>
 ) : (
     <>
         <h3 className="section-title">Próximamente</h3>
