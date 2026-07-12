@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../Styles/Dashboard.css';
 import { useTabHistory } from '../hooks/useTabHistory';
@@ -8,8 +8,14 @@ import { decodeJwt } from '../services/jwt';
 import Reportes from '../components/Reportes';
 import { listarAulas } from '../services/aulaService';
 import { listarAlumnos, registrarAlumno } from '../services/alumnoService';
-import { listarMatriculas, registrarMatricula  } from '../services/matriculaService';
-import { tipoDocumentoService } from '../services/catalogoService';
+import { listarMatriculas, registrarMatricula } from '../services/matriculaService';
+import { tipoDocumentoService, tipoConceptoService, anioAcademicoService } from '../services/catalogoService';
+import {
+    listarConceptos,
+    crearConcepto as crearConceptoAPI,
+    editarConcepto as editarConceptoAPI,
+    clonarConceptos as clonarConceptosAPI
+} from '../services/conceptoService';
 
 const TOTP_STEP = 30; // segundos que dura cada codigo, igual que Google Authenticator
 
@@ -163,18 +169,6 @@ const matriculaBadgeClass = (estado) => {
 };
 
 
-const mockConceptosPorAnio = {
-    '2026': [
-        { id: 1, nombre: 'Matrícula', tipo: 'Fijo', monto: 200, orden: 1, obligatorio: true },
-        { id: 2, nombre: 'Libro', tipo: 'Fijo', monto: 50, orden: 2, obligatorio: true },
-        { id: 3, nombre: 'Marzo', tipo: 'Mensual', monto: 100, orden: 3, obligatorio: true },
-        { id: 4, nombre: 'Abril', tipo: 'Mensual', monto: 100, orden: 4, obligatorio: true },
-        { id: 5, nombre: 'Taller extra', tipo: 'Opcional', monto: 30, orden: 5, obligatorio: false }
-    ]
-};
-
-const tiposConcepto = ['Fijo', 'Mensual', 'Opcional'];
-
 
 const mockAlumnosMaestro = [
     { apPaterno: 'Chinga', apMaterno: 'Ramos', nombre: 'Carlos' },
@@ -231,29 +225,29 @@ const SecretariaUserDashboard = () => {
     const [anioHistorico, setAnioHistorico] = useState('2026');
     const [showVerTodosModal, setShowVerTodosModal] = useState(false);
 
-    
+
     const [anioAlumnos, setAnioAlumnos] = useState('2026');
     const [selectedAulaAlumnosId, setSelectedAulaAlumnosId] = useState(null);
     const [alumnosGeneral, setAlumnosGeneral] = useState(mockAlumnosGeneral);
-const [busquedaAlumno, setBusquedaAlumno] = useState('');
-const [showNuevoAlumnoModal, setShowNuevoAlumnoModal] = useState(false);
-const [alumnoError, setAlumnoError] = useState('');
-const [matriculasBackend, setMatriculasBackend] = useState([]);
-const [alumnosMatriculadosPorAnio, setAlumnosMatriculadosPorAnio] = useState({});
-const [cargandoDatosAcademicos, setCargandoDatosAcademicos] = useState(true);
-const [errorCargaAcademica, setErrorCargaAcademica] = useState('');
+    const [busquedaAlumno, setBusquedaAlumno] = useState('');
+    const [showNuevoAlumnoModal, setShowNuevoAlumnoModal] = useState(false);
+    const [alumnoError, setAlumnoError] = useState('');
+    const [matriculasBackend, setMatriculasBackend] = useState([]);
+    const [alumnosMatriculadosPorAnio, setAlumnosMatriculadosPorAnio] = useState({});
+    const [cargandoDatosAcademicos, setCargandoDatosAcademicos] = useState(true);
+    const [errorCargaAcademica, setErrorCargaAcademica] = useState('');
 
-const [tiposDocumento, setTiposDocumento] = useState([]);
-const [guardandoAlumno, setGuardandoAlumno] = useState(false);
+    const [tiposDocumento, setTiposDocumento] = useState([]);
+    const [guardandoAlumno, setGuardandoAlumno] = useState(false);
 
-const [nuevoAlumno, setNuevoAlumno] = useState({
-    codTipoDocumento: '',
-    documento: '',
-    nombres: '',
-    apPaterno: '',
-    apMaterno: '',
-    fechaNacimiento: ''
-});
+    const [nuevoAlumno, setNuevoAlumno] = useState({
+        codTipoDocumento: '',
+        documento: '',
+        nombres: '',
+        apPaterno: '',
+        apMaterno: '',
+        fechaNacimiento: ''
+    });
 
 
     const [claveActual, setClaveActual] = useState('');
@@ -273,17 +267,17 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
     const [newAula, setNewAula] = useState({ nivel: 'Inicial', grado: '', seccion: '', anio: '2026', cupo: '25' });
     const [newAulaError, setNewAulaError] = useState('');
 
-    
+
     const [anioMatricula, setAnioMatricula] = useState('2026');
     const [nombreAlumnoMatricula, setNombreAlumnoMatricula] = useState('');
     const [alumnoMatriculaSeleccionado, setAlumnoMatriculaSeleccionado] = useState(false);
-    
-const [alumnoMatriculaSeleccionadoObj, setAlumnoMatriculaSeleccionadoObj] = useState(null);
+
+    const [alumnoMatriculaSeleccionadoObj, setAlumnoMatriculaSeleccionadoObj] = useState(null);
     const [selectedAulaMatriculaId, setSelectedAulaMatriculaId] = useState(null);
     const [showAlumnoModal, setShowAlumnoModal] = useState(false);
     const [showAulaModal, setShowAulaModal] = useState(false);
     const [aulaQuery, setAulaQuery] = useState('');
-    
+
     const [pagosPorMatricula, setPagosPorMatricula] = useState({
         'chinga-ramos-carlos-2026': [1, 2]
     });
@@ -303,43 +297,110 @@ const [alumnoMatriculaSeleccionadoObj, setAlumnoMatriculaSeleccionadoObj] = useS
     const [secreto2FA, setSecreto2FA] = useState(null);   // { secret, qrUrl } real, viene del backend
     const [cargando2FA, setCargando2FA] = useState(false);
 
-    
+
     const [anioConsultaPagos, setAnioConsultaPagos] = useState('2026');
     const [nombreAlumnoPagos, setNombreAlumnoPagos] = useState('');
     const [pagosPorMatriculaPagos, setPagosPorMatriculaPagos] = useState({
-        'chinga-ramos-carlos-2026': [1, 2, 3] 
+        'chinga-ramos-carlos-2026': [1, 2, 3]
     });
     const [correlativoBoleta, setCorrelativoBoleta] = useState(() => Math.floor(100000 + Math.random() * 900000));
     const [reciboMensaje, setReciboMensaje] = useState('');
     const [showHistorialPagosModal, setShowHistorialPagosModal] = useState(false);
 
-    
-    const [conceptosPorAnio, setConceptosPorAnio] = useState(mockConceptosPorAnio);
-    const [anioConceptos, setAnioConceptos] = useState('2026');
+
+    // ===== Conceptos (datos reales vía /api/conceptos) =====
+    const [aniosAcademicosCatalogo, setAniosAcademicosCatalogo] = useState([]); // [{codAnioAcademico, anio}]
+    const [tiposConceptoCatalogo, setTiposConceptoCatalogo] = useState([]);     // [{codTipoConcepto, nombre}]
+    const [conceptosBackend, setConceptosBackend] = useState([]);              // conceptos crudos, todos los años
+    const [selectedAnioConceptoId, setSelectedAnioConceptoId] = useState(null); // codAnioAcademico elegido
+    const [cargandoConceptos, setCargandoConceptos] = useState(false);
+    const [errorConceptos, setErrorConceptos] = useState('');
+    const [guardandoConcepto, setGuardandoConcepto] = useState(false);
+
     const [editingConceptoId, setEditingConceptoId] = useState(null);
-    const [editDraft, setEditDraft] = useState({ nombre: '', tipo: 'Fijo', monto: '', orden: '' });
+    const [editDraft, setEditDraft] = useState({ nombre: '', codTipoConcepto: '', monto: '', orden: '' });
     const [showNewConceptoForm, setShowNewConceptoForm] = useState(false);
-    const [newConcepto, setNewConcepto] = useState({ nombre: '', tipo: 'Fijo', monto: '', obligatorio: true });
+    const [newConcepto, setNewConcepto] = useState({ nombre: '', codTipoConcepto: '', monto: '', obligatorio: true });
+    const [anioDestinoClonar, setAnioDestinoClonar] = useState('');
 
-    const conceptosDelAnio = (conceptosPorAnio[anioConceptos] || []).slice().sort((a, b) => a.orden - b.orden);
-    const anioSiguienteConceptos = String(Number(anioConceptos) + 1);
+    // Carga los catálogos (años académicos, tipos de concepto) una sola vez, al montar el panel
+    useEffect(() => {
+        if (aniosAcademicosCatalogo.length > 0) return;
+        Promise.all([anioAcademicoService.listar(), tipoConceptoService.listar()])
+            .then(([anios, tipos]) => {
+                const aniosActivos = anios.filter(a => a.estado);
+                setAniosAcademicosCatalogo(aniosActivos);
+                setTiposConceptoCatalogo(tipos.filter(t => t.estado));
+                if (aniosActivos.length > 0) setSelectedAnioConceptoId(aniosActivos[0].codAnioAcademico);
+            })
+            .catch(err => {
+                console.error('Error cargando catálogos de conceptos', err);
+                setErrorConceptos('No se pudieron cargar los años académicos / tipos de concepto.');
+            });
+    }, [aniosAcademicosCatalogo.length]);
 
-    
-    const toggleObligatorio = (conceptoId) => {
-        setConceptosPorAnio(prev => ({
-            ...prev,
-            [anioConceptos]: (prev[anioConceptos] || []).map(c =>
-                c.id === conceptoId ? { ...c, obligatorio: !c.obligatorio } : c
-            )
-        }));
+    // Trae los conceptos reales del backend
+    const cargarConceptos = useCallback(async () => {
+        setCargandoConceptos(true);
+        setErrorConceptos('');
+        try {
+            const data = await listarConceptos();
+            setConceptosBackend(data.filter(c => c.estado));
+        } catch (err) {
+            console.error('Error cargando conceptos', err);
+            setErrorConceptos('No se pudieron cargar los conceptos. Verifica tu permiso "ver" en Conceptos.');
+        } finally {
+            setCargandoConceptos(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        cargarConceptos();
+    }, [cargarConceptos]);
+
+    const conceptosDelAnio = conceptosBackend
+        .filter(c => c.anioAcademico?.codAnioAcademico === selectedAnioConceptoId)
+        .map(c => ({
+            id: c.codConcepto,
+            nombre: c.nombreConcepto,
+            tipo: c.tipoConcepto?.nombre,
+            codTipoConcepto: c.tipoConcepto?.codTipoConcepto,
+            monto: Number(c.monto),
+            orden: c.ordenPago,
+            obligatorio: c.obligatorio,
+            version: c.version
+        }))
+        .sort((a, b) => a.orden - b.orden);
+
+    const anioConceptosLabel = aniosAcademicosCatalogo.find(a => a.codAnioAcademico === selectedAnioConceptoId)?.anio || '';
+
+
+    const toggleObligatorio = async (concepto) => {
+        setGuardandoConcepto(true);
+        try {
+            await editarConceptoAPI(concepto.id, {
+                codAnioAcademico: selectedAnioConceptoId,
+                codTipoConcepto: concepto.codTipoConcepto,
+                nombreConcepto: concepto.nombre,
+                monto: concepto.monto,
+                ordenPago: concepto.orden,
+                obligatorio: !concepto.obligatorio,
+                version: concepto.version
+            });
+            await cargarConceptos();
+        } catch (err) {
+            console.error('Error actualizando concepto', err);
+            setErrorConceptos('No se pudo actualizar el concepto (¿otro usuario lo modificó?).');
+        } finally {
+            setGuardandoConcepto(false);
+        }
     };
 
-    
     const startEditConcepto = (concepto) => {
         setEditingConceptoId(concepto.id);
         setEditDraft({
             nombre: concepto.nombre,
-            tipo: concepto.tipo,
+            codTipoConcepto: String(concepto.codTipoConcepto),
             monto: String(concepto.monto),
             orden: String(concepto.orden)
         });
@@ -347,59 +408,75 @@ const [alumnoMatriculaSeleccionadoObj, setAlumnoMatriculaSeleccionadoObj] = useS
 
     const cancelEditConcepto = () => {
         setEditingConceptoId(null);
-        setEditDraft({ nombre: '', tipo: 'Fijo', monto: '', orden: '' });
+        setEditDraft({ nombre: '', codTipoConcepto: '', monto: '', orden: '' });
     };
 
-    
-    const saveConcepto = (conceptoId) => {
-        if (!editDraft.nombre.trim() || !editDraft.monto || !editDraft.orden) return;
+    const saveConcepto = async (concepto) => {
+        if (!editDraft.nombre.trim() || !editDraft.monto || !editDraft.orden || !editDraft.codTipoConcepto) return;
 
-        setConceptosPorAnio(prev => ({
-            ...prev,
-            [anioConceptos]: (prev[anioConceptos] || []).map(c =>
-                c.id === conceptoId
-                    ? { ...c, nombre: editDraft.nombre.trim(), tipo: editDraft.tipo, monto: Number(editDraft.monto), orden: Number(editDraft.orden) }
-                    : c
-            )
-        }));
-        cancelEditConcepto();
+        setGuardandoConcepto(true);
+        try {
+            await editarConceptoAPI(concepto.id, {
+                codAnioAcademico: selectedAnioConceptoId,
+                codTipoConcepto: Number(editDraft.codTipoConcepto),
+                nombreConcepto: editDraft.nombre.trim(),
+                monto: Number(editDraft.monto),
+                ordenPago: Number(editDraft.orden),
+                obligatorio: concepto.obligatorio,
+                version: concepto.version
+            });
+            cancelEditConcepto();
+            await cargarConceptos();
+        } catch (err) {
+            const msg = err.response?.data;
+            setErrorConceptos(typeof msg === 'string' ? msg : 'No se pudo guardar el concepto.');
+        } finally {
+            setGuardandoConcepto(false);
+        }
     };
 
-    
-    const crearConcepto = (e) => {
+    const crearConcepto = async (e) => {
         e.preventDefault();
-        if (!newConcepto.nombre.trim() || !newConcepto.monto) return;
+        if (!newConcepto.nombre.trim() || !newConcepto.monto || !newConcepto.codTipoConcepto || !selectedAnioConceptoId) return;
 
-        const listaActual = conceptosPorAnio[anioConceptos] || [];
-        const nuevoId = listaActual.length > 0 ? Math.max(...listaActual.map(c => c.id)) + 1 : 1;
-        const nuevoOrden = listaActual.length > 0 ? Math.max(...listaActual.map(c => c.orden)) + 1 : 1;
+        const siguienteOrden = conceptosDelAnio.length > 0 ? Math.max(...conceptosDelAnio.map(c => c.orden)) + 1 : 1;
 
-        const conceptoNuevo = {
-            id: nuevoId,
-            nombre: newConcepto.nombre.trim(),
-            tipo: newConcepto.tipo,
-            monto: Number(newConcepto.monto),
-            orden: nuevoOrden,
-            obligatorio: newConcepto.obligatorio
-        };
-
-        setConceptosPorAnio(prev => ({
-            ...prev,
-            [anioConceptos]: [...listaActual, conceptoNuevo]
-        }));
-
-        setNewConcepto({ nombre: '', tipo: 'Fijo', monto: '', obligatorio: true });
-        setShowNewConceptoForm(false);
+        setGuardandoConcepto(true);
+        try {
+            await crearConceptoAPI({
+                codAnioAcademico: selectedAnioConceptoId,
+                codTipoConcepto: Number(newConcepto.codTipoConcepto),
+                nombreConcepto: newConcepto.nombre.trim(),
+                monto: Number(newConcepto.monto),
+                ordenPago: siguienteOrden,
+                obligatorio: newConcepto.obligatorio
+            });
+            setNewConcepto({ nombre: '', codTipoConcepto: '', monto: '', obligatorio: true });
+            setShowNewConceptoForm(false);
+            await cargarConceptos();
+        } catch (err) {
+            const msg = err.response?.data;
+            setErrorConceptos(typeof msg === 'string' ? msg : 'No se pudo crear el concepto.');
+        } finally {
+            setGuardandoConcepto(false);
+        }
     };
 
-    
-    const clonarAAnioSiguiente = () => {
-        const listaActual = conceptosPorAnio[anioConceptos] || [];
-        setConceptosPorAnio(prev => ({
-            ...prev,
-            [anioSiguienteConceptos]: listaActual.map(c => ({ ...c }))
-        }));
-        setAnioConceptos(anioSiguienteConceptos);
+    const clonarAAnioSiguiente = async () => {
+        if (!anioDestinoClonar || !selectedAnioConceptoId) return;
+        setGuardandoConcepto(true);
+        setErrorConceptos('');
+        try {
+            await clonarConceptosAPI(selectedAnioConceptoId, Number(anioDestinoClonar));
+            setSelectedAnioConceptoId(Number(anioDestinoClonar));
+            setAnioDestinoClonar('');
+            await cargarConceptos();
+        } catch (err) {
+            const msg = err.response?.data;
+            setErrorConceptos(typeof msg === 'string' ? msg : 'No se pudo clonar los conceptos.');
+        } finally {
+            setGuardandoConcepto(false);
+        }
     };
 
     useEffect(() => {
@@ -413,116 +490,116 @@ const [alumnoMatriculaSeleccionadoObj, setAlumnoMatriculaSeleccionadoObj] = useS
         return () => clearInterval(interval);
     }, [show2FAModal, secreto2FA]);
     // Carga aulas, alumnos y matrículas reales desde el backend y las adapta al formato que usa el panel
-useEffect(() => {
-    let activo = true;
+    useEffect(() => {
+        let activo = true;
 
-    const cargarDatosAcademicos = async () => {
-        setCargandoDatosAcademicos(true);
-        setErrorCargaAcademica('');
-        try {
-            const [aulasBackend, alumnosBackend, matriculasReales] = await Promise.all([
-                listarAulas(),
-                listarAlumnos(),
-                listarMatriculas()
-            ]);
-            if (!activo) return;
+        const cargarDatosAcademicos = async () => {
+            setCargandoDatosAcademicos(true);
+            setErrorCargaAcademica('');
+            try {
+                const [aulasBackend, alumnosBackend, matriculasReales] = await Promise.all([
+                    listarAulas(),
+                    listarAlumnos(),
+                    listarMatriculas()
+                ]);
+                if (!activo) return;
 
-            // Cuántos alumnos con matrícula activa tiene cada aula (para cupo/estado)
-            const activasPorAula = {};
-            matriculasReales.forEach((m) => {
-                if (m.estado === 'activa' && m.aula?.codAula) {
-                    activasPorAula[m.aula.codAula] = (activasPorAula[m.aula.codAula] || 0) + 1;
-                }
-            });
+                // Cuántos alumnos con matrícula activa tiene cada aula (para cupo/estado)
+                const activasPorAula = {};
+                matriculasReales.forEach((m) => {
+                    if (m.estado === 'activa' && m.aula?.codAula) {
+                        activasPorAula[m.aula.codAula] = (activasPorAula[m.aula.codAula] || 0) + 1;
+                    }
+                });
 
-            const aulasMapeadas = aulasBackend
-                .filter((a) => a.estado)
-                .map((a) => {
-                    const ocupadas = activasPorAula[a.codAula] || 0;
-                    return {
-                        id: a.codAula,
-                        nivel: a.nivel?.nombre || '',
-                        grado: a.grado?.nombre || '',
-                        seccion: a.seccion,
-                        alumnos: ocupadas,
-                        cupo: a.capacidadMaxima,
-                        estado: calcularEstadoAula(ocupadas, a.capacidadMaxima),
-                        anio: a.anioAcademico?.anio || ''
+                const aulasMapeadas = aulasBackend
+                    .filter((a) => a.estado)
+                    .map((a) => {
+                        const ocupadas = activasPorAula[a.codAula] || 0;
+                        return {
+                            id: a.codAula,
+                            nivel: a.nivel?.nombre || '',
+                            grado: a.grado?.nombre || '',
+                            seccion: a.seccion,
+                            alumnos: ocupadas,
+                            cupo: a.capacidadMaxima,
+                            estado: calcularEstadoAula(ocupadas, a.capacidadMaxima),
+                            anio: a.anioAcademico?.anio || ''
+                        };
+                    });
+
+                // Alumnos matriculados por aula, para la pestaña "Aulas" (listado)
+                const porAula = {};
+                matriculasReales
+                    .slice()
+                    .sort((a, b) => a.codMatricula - b.codMatricula)
+                    .forEach((m) => {
+                        const codAula = m.aula?.codAula;
+                        if (!codAula) return;
+                        const lista = porAula[codAula] || [];
+                        const nombreCompleto = `${m.alumno?.apellidoPaterno || ''} ${m.alumno?.apellidoMaterno || ''}, ${m.alumno?.nombres || ''}`.trim();
+                        lista.push({
+                            n: lista.length + 1,
+                            nombre: nombreCompleto,
+                            matricula: m.estado,
+                            aud: `M-${m.codMatricula}`,
+                            codAlumno: m.alumno?.codAlumno
+                        });
+                        porAula[codAula] = lista;
+                    });
+
+                // Set de alumnos ya matriculados por año, para no ofrecerlos de nuevo al matricular
+                const matriculadosPorAnio = {};
+                matriculasReales.forEach((m) => {
+                    if (m.estado !== 'activa') return;
+                    const anio = m.anioAcademico?.anio;
+                    const codAlumno = m.alumno?.codAlumno;
+                    if (!anio || !codAlumno) return;
+                    if (!matriculadosPorAnio[anio]) matriculadosPorAnio[anio] = [];
+                    matriculadosPorAnio[anio].push(codAlumno);
+                });
+
+                // Nivel/grado vigente de cada alumno, según su matrícula activa más reciente (para la pestaña Alumnos)
+                const nivelGradoPorAlumno = {};
+                matriculasReales.forEach((m) => {
+                    if (m.estado !== 'activa') return;
+                    const codAlumno = m.alumno?.codAlumno;
+                    if (!codAlumno) return;
+                    nivelGradoPorAlumno[codAlumno] = {
+                        nivel: m.aula?.nivel?.nombre || '',
+                        grado: m.aula?.grado?.nombre ? `${m.aula.grado.nombre} ${m.aula.seccion}` : ''
                     };
                 });
 
-            // Alumnos matriculados por aula, para la pestaña "Aulas" (listado)
-            const porAula = {};
-            matriculasReales
-                .slice()
-                .sort((a, b) => a.codMatricula - b.codMatricula)
-                .forEach((m) => {
-                    const codAula = m.aula?.codAula;
-                    if (!codAula) return;
-                    const lista = porAula[codAula] || [];
-                    const nombreCompleto = `${m.alumno?.apellidoPaterno || ''} ${m.alumno?.apellidoMaterno || ''}, ${m.alumno?.nombres || ''}`.trim();
-                    lista.push({
-                        n: lista.length + 1,
-                        nombre: nombreCompleto,
-                        matricula: m.estado,
-                        aud: `M-${m.codMatricula}`,
-                        codAlumno: m.alumno?.codAlumno
-                    });
-                    porAula[codAula] = lista;
-                });
+                const alumnosMapeados = alumnosBackend.map((al) => ({
+                    id: al.codAlumno,
+                    codigo: `AL${String(al.codAlumno).padStart(4, '0')}`,
+                    documento: al.numeroDocumento,
+                    tipoDoc: al.tipoDocumento?.nombre || '',
+                    nombres: al.nombres,
+                    apPaterno: al.apellidoPaterno,
+                    apMaterno: al.apellidoMaterno,
+                    nivel: nivelGradoPorAlumno[al.codAlumno]?.nivel || 'Sin matrícula',
+                    grado: nivelGradoPorAlumno[al.codAlumno]?.grado || '',
+                    estado: al.estado ? 'activa' : 'inactiva'
+                }));
 
-            // Set de alumnos ya matriculados por año, para no ofrecerlos de nuevo al matricular
-            const matriculadosPorAnio = {};
-            matriculasReales.forEach((m) => {
-                if (m.estado !== 'activa') return;
-                const anio = m.anioAcademico?.anio;
-                const codAlumno = m.alumno?.codAlumno;
-                if (!anio || !codAlumno) return;
-                if (!matriculadosPorAnio[anio]) matriculadosPorAnio[anio] = [];
-                matriculadosPorAnio[anio].push(codAlumno);
-            });
+                if (!activo) return;
+                setAulas(aulasMapeadas);
+                setAlumnosPorAula(porAula);
+                setAlumnosGeneral(alumnosMapeados);
+                setMatriculasBackend(matriculasReales);
+                setAlumnosMatriculadosPorAnio(matriculadosPorAnio);
+                if (aulasMapeadas.length > 0) setSelectedAulaId((prev) => prev ?? aulasMapeadas[0].id);
+            } catch (err) {
+                console.error('Error al cargar datos académicos', err);
+                if (activo) setErrorCargaAcademica('No se pudieron cargar aulas/alumnos desde el servidor.');
+            } finally {
+                if (activo) setCargandoDatosAcademicos(false);
+            }
+        };
 
-            // Nivel/grado vigente de cada alumno, según su matrícula activa más reciente (para la pestaña Alumnos)
-            const nivelGradoPorAlumno = {};
-            matriculasReales.forEach((m) => {
-                if (m.estado !== 'activa') return;
-                const codAlumno = m.alumno?.codAlumno;
-                if (!codAlumno) return;
-                nivelGradoPorAlumno[codAlumno] = {
-                    nivel: m.aula?.nivel?.nombre || '',
-                    grado: m.aula?.grado?.nombre ? `${m.aula.grado.nombre} ${m.aula.seccion}` : ''
-                };
-            });
-
-            const alumnosMapeados = alumnosBackend.map((al) => ({
-                id: al.codAlumno,
-                codigo: `AL${String(al.codAlumno).padStart(4, '0')}`,
-                documento: al.numeroDocumento,
-                tipoDoc: al.tipoDocumento?.nombre || '',
-                nombres: al.nombres,
-                apPaterno: al.apellidoPaterno,
-                apMaterno: al.apellidoMaterno,
-                nivel: nivelGradoPorAlumno[al.codAlumno]?.nivel || 'Sin matrícula',
-                grado: nivelGradoPorAlumno[al.codAlumno]?.grado || '',
-                estado: al.estado ? 'activa' : 'inactiva'
-            }));
-
-            if (!activo) return;
-            setAulas(aulasMapeadas);
-            setAlumnosPorAula(porAula);
-            setAlumnosGeneral(alumnosMapeados);
-            setMatriculasBackend(matriculasReales);
-            setAlumnosMatriculadosPorAnio(matriculadosPorAnio);
-            if (aulasMapeadas.length > 0) setSelectedAulaId((prev) => prev ?? aulasMapeadas[0].id);
-        } catch (err) {
-            console.error('Error al cargar datos académicos', err);
-            if (activo) setErrorCargaAcademica('No se pudieron cargar aulas/alumnos desde el servidor.');
-        } finally {
-            if (activo) setCargandoDatosAcademicos(false);
-        }
-    };
-
-   cargarDatosAcademicos();
+        cargarDatosAcademicos();
         return () => { activo = false; };
     }, []);
 
@@ -547,75 +624,75 @@ useEffect(() => {
     const selectedAulaAlumnos = aulas.find(a => a.id === selectedAulaAlumnosId) || null;
     const alumnosDeAulaSeleccionada = selectedAulaAlumnos ? (alumnosPorAula[selectedAulaAlumnos.id] || []) : [];
     const alumnosFiltradosGeneral = alumnosGeneral.filter((alumno) => {
-    const texto =
-        `${alumno.codigo} ${alumno.nombres} ${alumno.apPaterno} ${alumno.apMaterno} ${alumno.documento}`.toLowerCase();
+        const texto =
+            `${alumno.codigo} ${alumno.nombres} ${alumno.apPaterno} ${alumno.apMaterno} ${alumno.documento}`.toLowerCase();
 
-    return texto.includes(busquedaAlumno.toLowerCase());
-});
+        return texto.includes(busquedaAlumno.toLowerCase());
+    });
 
-const guardarNuevoAlumno = async (e) => {
-    e.preventDefault();
-    setAlumnoError('');
+    const guardarNuevoAlumno = async (e) => {
+        e.preventDefault();
+        setAlumnoError('');
 
-    if (
-        !nuevoAlumno.codTipoDocumento ||
-        !nuevoAlumno.documento.trim() ||
-        !nuevoAlumno.nombres.trim() ||
-        !nuevoAlumno.apPaterno.trim() ||
-        !nuevoAlumno.apMaterno.trim() ||
-        !nuevoAlumno.fechaNacimiento
-    ) {
-        setAlumnoError('Todos los campos son obligatorios.');
-        return;
-    }
+        if (
+            !nuevoAlumno.codTipoDocumento ||
+            !nuevoAlumno.documento.trim() ||
+            !nuevoAlumno.nombres.trim() ||
+            !nuevoAlumno.apPaterno.trim() ||
+            !nuevoAlumno.apMaterno.trim() ||
+            !nuevoAlumno.fechaNacimiento
+        ) {
+            setAlumnoError('Todos los campos son obligatorios.');
+            return;
+        }
 
-    setGuardandoAlumno(true);
-    try {
-        const alumnoGuardado = await registrarAlumno({
-            codTipoDocumento: Number(nuevoAlumno.codTipoDocumento),
-            numeroDocumento: nuevoAlumno.documento.trim(),
-            nombres: nuevoAlumno.nombres.trim(),
-            apellidoPaterno: nuevoAlumno.apPaterno.trim(),
-            apellidoMaterno: nuevoAlumno.apMaterno.trim(),
-            fechaNacimiento: nuevoAlumno.fechaNacimiento
-        });
+        setGuardandoAlumno(true);
+        try {
+            const alumnoGuardado = await registrarAlumno({
+                codTipoDocumento: Number(nuevoAlumno.codTipoDocumento),
+                numeroDocumento: nuevoAlumno.documento.trim(),
+                nombres: nuevoAlumno.nombres.trim(),
+                apellidoPaterno: nuevoAlumno.apPaterno.trim(),
+                apellidoMaterno: nuevoAlumno.apMaterno.trim(),
+                fechaNacimiento: nuevoAlumno.fechaNacimiento
+            });
 
-        const tipoDocNombre = tiposDocumento.find(
-            (t) => t.codTipoDocumento === Number(nuevoAlumno.codTipoDocumento)
-        )?.nombre || '';
+            const tipoDocNombre = tiposDocumento.find(
+                (t) => t.codTipoDocumento === Number(nuevoAlumno.codTipoDocumento)
+            )?.nombre || '';
 
-        const alumnoCreado = {
-            id: alumnoGuardado.codAlumno,
-            codigo: `AL${String(alumnoGuardado.codAlumno).padStart(4, '0')}`,
-            documento: alumnoGuardado.numeroDocumento,
-            tipoDoc: tipoDocNombre,
-            nombres: alumnoGuardado.nombres,
-            apPaterno: alumnoGuardado.apellidoPaterno,
-            apMaterno: alumnoGuardado.apellidoMaterno,
-            nivel: 'Sin matrícula',
-            grado: '',
-            estado: 'activa'
-        };
+            const alumnoCreado = {
+                id: alumnoGuardado.codAlumno,
+                codigo: `AL${String(alumnoGuardado.codAlumno).padStart(4, '0')}`,
+                documento: alumnoGuardado.numeroDocumento,
+                tipoDoc: tipoDocNombre,
+                nombres: alumnoGuardado.nombres,
+                apPaterno: alumnoGuardado.apellidoPaterno,
+                apMaterno: alumnoGuardado.apellidoMaterno,
+                nivel: 'Sin matrícula',
+                grado: '',
+                estado: 'activa'
+            };
 
-        setAlumnosGeneral((prev) => [...prev, alumnoCreado]);
+            setAlumnosGeneral((prev) => [...prev, alumnoCreado]);
 
-        setNuevoAlumno({
-            codTipoDocumento: '',
-            documento: '',
-            nombres: '',
-            apPaterno: '',
-            apMaterno: '',
-            fechaNacimiento: ''
-        });
-        setShowNuevoAlumnoModal(false);
-    } catch (err) {
-        const msg = err.response?.data;
-        setAlumnoError(typeof msg === 'string' ? msg : 'No se pudo registrar el alumno.');
-    } finally {
-        setGuardandoAlumno(false);
-    }
-}; 
-    
+            setNuevoAlumno({
+                codTipoDocumento: '',
+                documento: '',
+                nombres: '',
+                apPaterno: '',
+                apMaterno: '',
+                fechaNacimiento: ''
+            });
+            setShowNuevoAlumnoModal(false);
+        } catch (err) {
+            const msg = err.response?.data;
+            setAlumnoError(typeof msg === 'string' ? msg : 'No se pudo registrar el alumno.');
+        } finally {
+            setGuardandoAlumno(false);
+        }
+    };
+
     const crearAula = (e) => {
         e.preventDefault();
         setNewAulaError('');
@@ -654,22 +731,22 @@ const guardarNuevoAlumno = async (e) => {
             nivel: newAula.nivel,
             grado: gradoLimpio,
             seccion: seccionLimpia,
-            alumnos: 0, 
-            cupo: cupoNumero, 
+            alumnos: 0,
+            cupo: cupoNumero,
             estado: 'disponible',
             anio: newAula.anio
         };
 
         setAulas(prev => [...prev, aulaNueva]);
         setSelectedAulaId(nuevoId);
-        setAnioAcademico(newAula.anio); 
+        setAnioAcademico(newAula.anio);
         setNivelFiltro('Todos');
 
         setNewAula({ nivel: 'Inicial', grado: '', seccion: '', anio: newAula.anio, cupo: '25' });
         setShowNewAulaForm(false);
     };
 
-    
+
     const cambiarClave = async (e) => {
         e.preventDefault();
         setClaveError('');
@@ -693,30 +770,34 @@ const guardarNuevoAlumno = async (e) => {
         }
 
         try {
-        await cambiarPassword({ passwordActual: claveActual, passwordNueva: claveNueva });
-        setClaveExito(true);
-        setClaveActual('');
-        setClaveNueva('');
-        setClaveConfirmar('');
-        setTimeout(() => setClaveExito(false), 3000);
-    } catch (err) {
-        setClaveError(
-            err.response?.status === 401 || err.response?.status === 403
-                ? 'La contraseña actual no es correcta.'
-                : 'No se pudo conectar con el servidor.'
-        );
-    }
-};
-    
+            await cambiarPassword({ passwordActual: claveActual, passwordNueva: claveNueva });
+            setClaveExito(true);
+            setClaveActual('');
+            setClaveNueva('');
+            setClaveConfirmar('');
+            setTimeout(() => setClaveExito(false), 3000);
+        } catch (err) {
+            setClaveError(
+                err.response?.status === 401 || err.response?.status === 403
+                    ? 'La contraseña actual no es correcta.'
+                    : 'No se pudo conectar con el servidor.'
+            );
+        }
+    };
+
     const selectedAulaMatricula = aulas.find(a => a.id === selectedAulaMatriculaId) || null;
     const aulaMatriculaLlena = selectedAulaMatricula?.estado === 'llena';
 
     const matriculaKey = `${nombreAlumnoMatricula.trim().toLowerCase().replace(/\s+/g, '-')}-${anioMatricula}`;
     const pagadosIds = pagosPorMatricula[matriculaKey] || [];
 
-    const conceptosDelAnioMatricula = (conceptosPorAnio[anioMatricula] || []).slice().sort((a, b) => a.orden - b.orden);
+    const codAnioMatricula = aniosAcademicosCatalogo.find(a => a.anio === anioMatricula)?.codAnioAcademico;
+    const conceptosDelAnioMatricula = conceptosBackend
+        .filter(c => c.anioAcademico?.codAnioAcademico === codAnioMatricula)
+        .map(c => ({ id: c.codConcepto, nombre: c.nombreConcepto, monto: Number(c.monto), orden: c.ordenPago, obligatorio: c.obligatorio }))
+        .sort((a, b) => a.orden - b.orden);
 
-    
+
     let bloqueoEncontrado = false;
     const cuotasConEstado = conceptosDelAnioMatricula.map((concepto) => {
         const pagado = pagadosIds.includes(concepto.id);
@@ -727,7 +808,7 @@ const guardarNuevoAlumno = async (e) => {
             estado = 'bloqueado';
         } else {
             estado = 'pagar';
-            bloqueoEncontrado = true; 
+            bloqueoEncontrado = true;
         }
         return { ...concepto, estadoPago: estado };
     });
@@ -737,7 +818,7 @@ const guardarNuevoAlumno = async (e) => {
         ? cuotasConEstado.filter(c => c.orden < primerBloqueado.orden).slice(-1)[0]
         : null;
 
-    
+
     const pagarCuota = (conceptoId) => {
         setPagosPorMatricula(prev => ({
             ...prev,
@@ -745,50 +826,50 @@ const guardarNuevoAlumno = async (e) => {
         }));
     };
 
-    
+
     const aulasFiltradasModal = aulas.filter(a => {
         const q = aulaQuery.trim().toLowerCase();
         if (!q) return true;
         return a.nivel.toLowerCase().includes(q) || a.grado.toLowerCase().includes(q) || a.seccion.toLowerCase().includes(q);
     });
 
-    
+
     const aulasDisponiblesModal = aulas.filter(a =>
         a.anio === anioMatricula && a.estado !== 'llena' && a.estado !== 'eliminada'
     );
     // Alumnos registrados (activos) que aún NO tienen matrícula activa en el año seleccionado
-const alumnosDisponiblesModal = alumnosGeneral
-    .filter(al => al.estado === 'activa')
-    .filter(al => !(alumnosMatriculadosPorAnio[anioMatricula] || []).includes(al.id))
-    .map(al => ({
-        ...al,
-        nombre: `${al.apPaterno} ${al.apMaterno}, ${al.nombres}`,
-        aulaLabel: al.documento
-    }))
-    .filter(al => {
-        const q = nombreAlumnoMatricula.trim().toLowerCase();
-        if (!q) return true;
-        return al.nombre.toLowerCase().includes(q);
-    });
+    const alumnosDisponiblesModal = alumnosGeneral
+        .filter(al => al.estado === 'activa')
+        .filter(al => !(alumnosMatriculadosPorAnio[anioMatricula] || []).includes(al.id))
+        .map(al => ({
+            ...al,
+            nombre: `${al.apPaterno} ${al.apMaterno}, ${al.nombres}`,
+            aulaLabel: al.documento
+        }))
+        .filter(al => {
+            const q = nombreAlumnoMatricula.trim().toLowerCase();
+            if (!q) return true;
+            return al.nombre.toLowerCase().includes(q);
+        });
 
     const seleccionarAlumnoModal = (alumno) => {
-    if (activeTab === 'matricula') {
-        setNombreAlumnoMatricula(alumno.nombre);
-        setAlumnoMatriculaSeleccionado(true);
-        setAlumnoMatriculaSeleccionadoObj(alumno.id ? alumno : null);
-        setMatriculaMensaje('');
-    }
+        if (activeTab === 'matricula') {
+            setNombreAlumnoMatricula(alumno.nombre);
+            setAlumnoMatriculaSeleccionado(true);
+            setAlumnoMatriculaSeleccionadoObj(alumno.id ? alumno : null);
+            setMatriculaMensaje('');
+        }
 
-    if (activeTab === 'pagos') {
-        setNombreAlumnoPagos(alumno.nombre);
-        setReciboMensaje('');
-    }
+        if (activeTab === 'pagos') {
+            setNombreAlumnoPagos(alumno.nombre);
+            setReciboMensaje('');
+        }
 
-    setShowAlumnoModal(false);
-};
+        setShowAlumnoModal(false);
+    };
 
     const seleccionarAulaModal = (aula) => {
-        if (aula.estado === 'llena') return; 
+        if (aula.estado === 'llena') return;
         setSelectedAulaMatriculaId(aula.id);
         setShowAulaModal(false);
         setMatriculaMensaje('');
@@ -912,12 +993,12 @@ const alumnosDisponiblesModal = alumnosGeneral
         }
     };
 
-    
+
     const alumnoKeyBase = nombreAlumnoPagos.trim().toLowerCase().replace(/,/g, '').replace(/\s+/g, '-');
     const matriculaKeyPagos = `${alumnoKeyBase}-${anioConsultaPagos}`;
     const pagadosIdsPagos = pagosPorMatriculaPagos[matriculaKeyPagos] || [];
 
-    
+
     const todosLosAlumnosPagos = aulas
         .filter(a => a.anio === anioConsultaPagos)
         .flatMap(a => (alumnosPorAula[a.id] || []).map(al => ({
@@ -943,21 +1024,21 @@ const alumnosDisponiblesModal = alumnosGeneral
     const historialAlumno = mockHistorialAlumnos[alumnoKeyBase] || historialPorDefecto;
     const deudaAnterior = historialAlumno.find(h => h.estado === 'pendiente');
     const historialPagosDetalle = [
-    { id: 1, concepto: 'Matrícula 2025', monto: 200, fecha: '05/03/25', estado: 'pagado', recibo: 'BOL-2025-001' },
-    { id: 2, concepto: 'Marzo 2025', monto: 100, fecha: '01/04/25', estado: 'pagado', recibo: 'BOL-2025-018' },
-    { id: 3, concepto: 'Abril 2025', monto: 100, fecha: '02/05/25', estado: 'pagado', recibo: 'BOL-2025-031' },
-    { id: 4, concepto: 'Diciembre 2025', monto: 100, fecha: '—', estado: 'pendiente', recibo: null }
-];
+        { id: 1, concepto: 'Matrícula 2025', monto: 200, fecha: '05/03/25', estado: 'pagado', recibo: 'BOL-2025-001' },
+        { id: 2, concepto: 'Marzo 2025', monto: 100, fecha: '01/04/25', estado: 'pagado', recibo: 'BOL-2025-018' },
+        { id: 3, concepto: 'Abril 2025', monto: 100, fecha: '02/05/25', estado: 'pagado', recibo: 'BOL-2025-031' },
+        { id: 4, concepto: 'Diciembre 2025', monto: 100, fecha: '—', estado: 'pendiente', recibo: null }
+    ];
 
-const totalPagado2025 = historialPagosDetalle
-    .filter(p => p.estado === 'pagado')
-    .reduce((total, p) => total + p.monto, 0);
+    const totalPagado2025 = historialPagosDetalle
+        .filter(p => p.estado === 'pagado')
+        .reduce((total, p) => total + p.monto, 0);
 
-const deudaPendiente2025 = historialPagosDetalle
-    .filter(p => p.estado === 'pendiente')
-    .reduce((total, p) => total + p.monto, 0);
+    const deudaPendiente2025 = historialPagosDetalle
+        .filter(p => p.estado === 'pendiente')
+        .reduce((total, p) => total + p.monto, 0);
 
-    
+
     const pagarCuotaPagos = (cuotaId) => {
         const nuevoCorrelativo = Math.floor(100000 + Math.random() * 900000);
         setPagosPorMatriculaPagos(prev => ({
@@ -1078,29 +1159,30 @@ const deudaPendiente2025 = historialPagosDetalle
                                     </div>
                                 )}
                                 <div className="field-group">
-    <label className="field-label">Alumno (apellidos y nombre)</label>
+                                    <label className="field-label">Alumno (apellidos y nombre)</label>
 
-    <div className="field-with-btn">
-        <input
-            type="text"
-            className="readonly-input"
-            placeholder="Selecciona un alumno con el botón Modal"
-            value={nombreAlumnoMatricula}
-            onChange={(e) => {setNombreAlumnoMatricula(e.target.value)
-                setAlumnoMatriculaSeleccionado(false);
-            }}
-            
-        />
+                                    <div className="field-with-btn">
+                                        <input
+                                            type="text"
+                                            className="readonly-input"
+                                            placeholder="Selecciona un alumno con el botón Modal"
+                                            value={nombreAlumnoMatricula}
+                                            onChange={(e) => {
+                                                setNombreAlumnoMatricula(e.target.value)
+                                                setAlumnoMatriculaSeleccionado(false);
+                                            }}
 
-        <button
-            className="modal-trigger-btn"
-            type="button"
-            onClick={() => setShowAlumnoModal(true)}
-        >
-            <IconSearch /> Modal
-        </button>
-    </div>
-</div>
+                                        />
+
+                                        <button
+                                            className="modal-trigger-btn"
+                                            type="button"
+                                            onClick={() => setShowAlumnoModal(true)}
+                                        >
+                                            <IconSearch /> Modal
+                                        </button>
+                                    </div>
+                                </div>
 
                                 <div className="field-group">
                                     <label className="field-label">Aula (nivel · grado · sección)</label>
@@ -1119,52 +1201,52 @@ const deudaPendiente2025 = historialPagosDetalle
                                 </div>
 
                                 {showAlumnoModal && activeTab === 'matricula' && (
-    <div
-        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
-        onClick={() => setShowAlumnoModal(false)}
-    >
-        <div
-            className="perm-box"
-            style={{ background: 'white', width: '440px', maxHeight: '70vh', overflowY: 'auto', padding: '1.25rem' }}
-            onClick={(e) => e.stopPropagation()}
-        >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <h3 className="section-title" style={{ margin: 0 }}>Buscar alumno — {anioMatricula}</h3>
-                <button className="icon-btn" onClick={() => setShowAlumnoModal(false)}>✕</button>
-            </div>
+                                    <div
+                                        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+                                        onClick={() => setShowAlumnoModal(false)}
+                                    >
+                                        <div
+                                            className="perm-box"
+                                            style={{ background: 'white', width: '440px', maxHeight: '70vh', overflowY: 'auto', padding: '1.25rem' }}
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                                <h3 className="section-title" style={{ margin: 0 }}>Buscar alumno — {anioMatricula}</h3>
+                                                <button className="icon-btn" onClick={() => setShowAlumnoModal(false)}>✕</button>
+                                            </div>
 
-            <input
-                type="text"
-                className="readonly-input"
-                placeholder="Buscar por apellido o nombre"
-                value={nombreAlumnoMatricula}
-                onChange={(e) => setNombreAlumnoMatricula(e.target.value)}
-                style={{ marginBottom: '0.75rem' }}
-            />
+                                            <input
+                                                type="text"
+                                                className="readonly-input"
+                                                placeholder="Buscar por apellido o nombre"
+                                                value={nombreAlumnoMatricula}
+                                                onChange={(e) => setNombreAlumnoMatricula(e.target.value)}
+                                                style={{ marginBottom: '0.75rem' }}
+                                            />
 
-            {alumnosDisponiblesModal.length === 0 ? (
-                <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>
-                    No se encontraron alumnos para la búsqueda.
-                </p>
-            ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {alumnosDisponiblesModal.map((al, idx) => (
-                        <button
-                            key={`${al.aud}-${al.n}-${idx}`}
-                            type="button"
-                            className="clickable-row"
-                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', background: 'white', cursor: 'pointer', textAlign: 'left' }}
-                            onClick={() => seleccionarAlumnoModal(al)}
-                        >
-                            <span>{al.nombre}</span>
-                            <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>{al.aulaLabel}</span>
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
-    </div>
-)}
+                                            {alumnosDisponiblesModal.length === 0 ? (
+                                                <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+                                                    No se encontraron alumnos para la búsqueda.
+                                                </p>
+                                            ) : (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                    {alumnosDisponiblesModal.map((al, idx) => (
+                                                        <button
+                                                            key={`${al.aud}-${al.n}-${idx}`}
+                                                            type="button"
+                                                            className="clickable-row"
+                                                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', background: 'white', cursor: 'pointer', textAlign: 'left' }}
+                                                            onClick={() => seleccionarAlumnoModal(al)}
+                                                        >
+                                                            <span>{al.nombre}</span>
+                                                            <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>{al.aulaLabel}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {showAulaModal && (
                                     <div
@@ -1386,56 +1468,56 @@ const deudaPendiente2025 = historialPagosDetalle
                             </main>
 
                             <aside className="dash-permissions">
-    {!alumnoMatriculaSeleccionado ? (
-        <div className="empty-aula-detail">
-            Selecciona un alumno con el botón "Modal" para generar sus cuotas.
-        </div>
-    ) : (
-        <>
-            <h3 className="section-title">
-                Cuotas generadas — {nombreAlumnoMatricula.trim()} · {anioMatricula}
-            </h3>
-
-            <table className="quota-table">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Concepto</th>
-                        <th>Monto</th>
-                        <th>Orden</th>
-                        <th>Estado</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {cuotasConEstado.map((cuota, index) => (
-                        <tr key={cuota.id}>
-                            <td>{index + 1}</td>
-                            <td>{cuota.nombre}</td>
-                            <td>S/ {cuota.monto}</td>
-                            <td>{cuota.orden}</td>
-                            <td>
-                                {cuota.estadoPago === 'pagado' ? (
-                                    <span className="status-badge status-active">Pagado (P)</span>
-                                ) : cuota.estadoPago === 'pagar' ? (
-                                    <button className="quota-pagar-btn" onClick={() => pagarCuota(cuota.id)}>Pagar</button>
+                                {!alumnoMatriculaSeleccionado ? (
+                                    <div className="empty-aula-detail">
+                                        Selecciona un alumno con el botón "Modal" para generar sus cuotas.
+                                    </div>
                                 ) : (
-                                    <span className="estado-badge estado-casi">bloqueado</span>
-                                )}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+                                    <>
+                                        <h3 className="section-title">
+                                            Cuotas generadas — {nombreAlumnoMatricula.trim()} · {anioMatricula}
+                                        </h3>
 
-            {primerBloqueado && (
-                <p className="quota-note">
-                    ⓘ No se puede pagar la cuota {primerBloqueado.orden}
-                    {cuotaAnteriorAlBloqueo ? ` sin pagar la ${cuotaAnteriorAlBloqueo.orden}` : ''}
-                </p>
-            )}
-        </>
-    )}
-</aside>
+                                        <table className="quota-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>#</th>
+                                                    <th>Concepto</th>
+                                                    <th>Monto</th>
+                                                    <th>Orden</th>
+                                                    <th>Estado</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {cuotasConEstado.map((cuota, index) => (
+                                                    <tr key={cuota.id}>
+                                                        <td>{index + 1}</td>
+                                                        <td>{cuota.nombre}</td>
+                                                        <td>S/ {cuota.monto}</td>
+                                                        <td>{cuota.orden}</td>
+                                                        <td>
+                                                            {cuota.estadoPago === 'pagado' ? (
+                                                                <span className="status-badge status-active">Pagado (P)</span>
+                                                            ) : cuota.estadoPago === 'pagar' ? (
+                                                                <button className="quota-pagar-btn" onClick={() => pagarCuota(cuota.id)}>Pagar</button>
+                                                            ) : (
+                                                                <span className="estado-badge estado-casi">bloqueado</span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+
+                                        {primerBloqueado && (
+                                            <p className="quota-note">
+                                                ⓘ No se puede pagar la cuota {primerBloqueado.orden}
+                                                {cuotaAnteriorAlBloqueo ? ` sin pagar la ${cuotaAnteriorAlBloqueo.orden}` : ''}
+                                            </p>
+                                        )}
+                                    </>
+                                )}
+                            </aside>
 
                         </>
                     ) : activeTab === 'pagos' ? (
@@ -1466,18 +1548,18 @@ const deudaPendiente2025 = historialPagosDetalle
                                                 value={nombreAlumnoPagos}
                                             />
                                             <button
-    className="modal-trigger-btn"
-    type="button"
-    onClick={() => {
-        if (!nombreAlumnoPagos.trim()) {
-            setShowAlumnoModal(true);
-        } else {
-            setShowHistorialPagosModal(true);
-        }
-    }}
->
-    <IconSearch /> Modal
-</button>
+                                                className="modal-trigger-btn"
+                                                type="button"
+                                                onClick={() => {
+                                                    if (!nombreAlumnoPagos.trim()) {
+                                                        setShowAlumnoModal(true);
+                                                    } else {
+                                                        setShowHistorialPagosModal(true);
+                                                    }
+                                                }}
+                                            >
+                                                <IconSearch /> Modal
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -1519,97 +1601,97 @@ const deudaPendiente2025 = historialPagosDetalle
                                     </div>
                                 )}
                                 {showHistorialPagosModal && (
-    <div
-        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
-        onClick={() => setShowHistorialPagosModal(false)}
-    >
-        <div
-            className="perm-box"
-            style={{ background: 'white', width: '850px', maxHeight: '80vh', overflowY: 'auto', padding: '1.25rem' }}
-            onClick={(e) => e.stopPropagation()}
-        >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h3 className="section-title" style={{ margin: 0 }}>
-                    Historial de pagos — 2025
-                </h3>
+                                    <div
+                                        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+                                        onClick={() => setShowHistorialPagosModal(false)}
+                                    >
+                                        <div
+                                            className="perm-box"
+                                            style={{ background: 'white', width: '850px', maxHeight: '80vh', overflowY: 'auto', padding: '1.25rem' }}
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                                <h3 className="section-title" style={{ margin: 0 }}>
+                                                    Historial de pagos — 2025
+                                                </h3>
 
-                <button
-                    type="button"
-                    className="btn-primary-outline"
-                    onClick={() => setShowHistorialPagosModal(false)}
-                >
-                    ← Volver a 2026
-                </button>
-            </div>
+                                                <button
+                                                    type="button"
+                                                    className="btn-primary-outline"
+                                                    onClick={() => setShowHistorialPagosModal(false)}
+                                                >
+                                                    ← Volver a 2026
+                                                </button>
+                                            </div>
 
-            <div className="warning-banner" style={{ marginBottom: '1rem' }}>
-                Año 2025 tiene deuda pendiente — regularizar para habilitar matrícula 2026
-            </div>
+                                            <div className="warning-banner" style={{ marginBottom: '1rem' }}>
+                                                Año 2025 tiene deuda pendiente — regularizar para habilitar matrícula 2026
+                                            </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 250px', gap: '1rem' }}>
-                <table className="users-table">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Concepto</th>
-                            <th>Monto</th>
-                            <th>Fecha pago</th>
-                            <th>Estado</th>
-                            <th>Recibo / Acción</th>
-                        </tr>
-                    </thead>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 250px', gap: '1rem' }}>
+                                                <table className="users-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>#</th>
+                                                            <th>Concepto</th>
+                                                            <th>Monto</th>
+                                                            <th>Fecha pago</th>
+                                                            <th>Estado</th>
+                                                            <th>Recibo / Acción</th>
+                                                        </tr>
+                                                    </thead>
 
-                    <tbody>
-                        {historialPagosDetalle.map((pago) => (
-                            <tr key={pago.id} className={pago.estado === 'pendiente' ? 'pagos-row-deuda' : ''}>
-                                <td>{pago.id}</td>
-                                <td>{pago.concepto}</td>
-                                <td>S/ {pago.monto}</td>
-                                <td>{pago.fecha}</td>
-                                <td>
-                                    {pago.estado === 'pagado' ? (
-                                        <span className="estado-pagado-pill">pagado</span>
-                                    ) : (
-                                        <span className="estado-deuda-pill">pendiente</span>
-                                    )}
-                                </td>
-                                <td>
-                                    {pago.estado === 'pagado' ? (
-                                        <button className="recibo-link">{pago.recibo}</button>
-                                    ) : (
-                                        <button className="pagar-btn-solid">Pagar ahora</button>
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                                                    <tbody>
+                                                        {historialPagosDetalle.map((pago) => (
+                                                            <tr key={pago.id} className={pago.estado === 'pendiente' ? 'pagos-row-deuda' : ''}>
+                                                                <td>{pago.id}</td>
+                                                                <td>{pago.concepto}</td>
+                                                                <td>S/ {pago.monto}</td>
+                                                                <td>{pago.fecha}</td>
+                                                                <td>
+                                                                    {pago.estado === 'pagado' ? (
+                                                                        <span className="estado-pagado-pill">pagado</span>
+                                                                    ) : (
+                                                                        <span className="estado-deuda-pill">pendiente</span>
+                                                                    )}
+                                                                </td>
+                                                                <td>
+                                                                    {pago.estado === 'pagado' ? (
+                                                                        <button className="recibo-link">{pago.recibo}</button>
+                                                                    ) : (
+                                                                        <button className="pagar-btn-solid">Pagar ahora</button>
+                                                                    )}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
 
-                <div className="perm-box">
-                    <p className="table-footer-note">Total pagado 2025</p>
-                    <h2>S/ {totalPagado2025}</h2>
+                                                <div className="perm-box">
+                                                    <p className="table-footer-note">Total pagado 2025</p>
+                                                    <h2>S/ {totalPagado2025}</h2>
 
-                    <p className="table-footer-note">Deuda pendiente</p>
-                    <h2 style={{ color: '#991b1b' }}>S/ {deudaPendiente2025}</h2>
+                                                    <p className="table-footer-note">Deuda pendiente</p>
+                                                    <h2 style={{ color: '#991b1b' }}>S/ {deudaPendiente2025}</h2>
 
-                    <hr />
+                                                    <hr />
 
-                    <p style={{ color: '#991b1b', fontWeight: 600 }}>
-                        Matrícula 2026 bloqueada
-                    </p>
+                                                    <p style={{ color: '#991b1b', fontWeight: 600 }}>
+                                                        Matrícula 2026 bloqueada
+                                                    </p>
 
-                    <p className="table-footer-note">
-                        Se desbloquea al pagar la deuda anterior.
-                    </p>
-                </div>
-            </div>
+                                                    <p className="table-footer-note">
+                                                        Se desbloquea al pagar la deuda anterior.
+                                                    </p>
+                                                </div>
+                                            </div>
 
-            <p className="table-footer-note" style={{ marginTop: '1rem' }}>
-                Auditoría: cada pago registra usuario que operó y timestamp de inserción/modificación.
-            </p>
-        </div>
-    </div>
-)}
+                                            <p className="table-footer-note" style={{ marginTop: '1rem' }}>
+                                                Auditoría: cada pago registra usuario que operó y timestamp de inserción/modificación.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {deudaAnterior && (
                                     <div className="warning-banner">
@@ -1649,7 +1731,7 @@ const deudaPendiente2025 = historialPagosDetalle
                                                             key={cuota.id}
                                                             className={
                                                                 cuota.estadoPago === 'deuda' ? 'pagos-row-deuda' :
-                                                                cuota.estadoPago === 'bloqueado' ? 'pagos-row-bloqueado' : ''
+                                                                    cuota.estadoPago === 'bloqueado' ? 'pagos-row-bloqueado' : ''
                                                             }
                                                         >
                                                             <td>{index + 1}</td>
@@ -1732,184 +1814,184 @@ const deudaPendiente2025 = historialPagosDetalle
                             </aside>
                         </>
                     ) : activeTab === 'alumnos' ? (
-    <main className="dash-content" style={{ flex: 1 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <div>
-                <h3 className="section-title">Alumnos registrados</h3>
-                <p className="table-footer-note">
-                    Lista general de alumnos registrados.
-                </p>
-            </div>
+                        <main className="dash-content" style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <div>
+                                    <h3 className="section-title">Alumnos registrados</h3>
+                                    <p className="table-footer-note">
+                                        Lista general de alumnos registrados.
+                                    </p>
+                                </div>
 
-            <button
-                type="button"
-                className="apply-btn"
-                onClick={() => setShowNuevoAlumnoModal(true)}
-            >
-                + Agregar alumno
-            </button>
-        </div>
+                                <button
+                                    type="button"
+                                    className="apply-btn"
+                                    onClick={() => setShowNuevoAlumnoModal(true)}
+                                >
+                                    + Agregar alumno
+                                </button>
+                            </div>
 
-        <input
-            type="text"
-            className="readonly-input"
-            placeholder="Buscar por código, nombre o documento..."
-            value={busquedaAlumno}
-            onChange={(e) => setBusquedaAlumno(e.target.value)}
-            style={{ marginBottom: '1rem', maxWidth: '420px' }}
-        />
-
-        <table className="users-table">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Código</th>
-                    <th>Alumno</th>
-                    <th>Documento</th>
-                    <th>Nivel / Aula</th>
-                    <th>Estado</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                {alumnosFiltradosGeneral.map((alumno, index) => (
-                    <tr key={alumno.id}>
-                        <td>{index + 1}</td>
-                        <td>{alumno.codigo}</td>
-                        <td>{alumno.apPaterno} {alumno.apMaterno}, {alumno.nombres}</td>
-                        <td>{alumno.tipoDoc} {alumno.documento}</td>
-                        <td>{alumno.nivel} {alumno.grado}</td>
-                        <td>
-                            <span className={`matric-badge ${matriculaBadgeClass(alumno.estado)}`}>
-                                {alumno.estado}
-                            </span>
-                        </td>
-                    </tr>
-                ))}
-            </tbody>
-        </table>
-
-        <p className="table-footer-note">
-            Mostrando {alumnosFiltradosGeneral.length} alumnos registrados.
-        </p>
-
-        {showNuevoAlumnoModal && (
-            <div
-                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
-                onClick={() => setShowNuevoAlumnoModal(false)}
-            >
-                <form
-                    className="perm-box"
-                    style={{ background: 'white', width: '760px', maxHeight: '80vh', overflowY: 'auto', padding: '1.25rem' }}
-                    onClick={(e) => e.stopPropagation()}
-                    onSubmit={guardarNuevoAlumno}
-                >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <h3 className="section-title" style={{ margin: 0 }}>Nuevo Alumno</h3>
-                        <button type="button" className="icon-btn" onClick={() => setShowNuevoAlumnoModal(false)}>✕</button>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                        <div className="field-group">
-                            <label className="field-label">Código</label>
-                            <input className="readonly-input" value="Autogenerado" disabled />
-                        </div>
-
-                       <div className="field-group">
-                            <label className="field-label">Tipo Documento *</label>
-                            <select
-                                className="filter-select"
-                                value={nuevoAlumno.codTipoDocumento}
-                                onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, codTipoDocumento: e.target.value })}
-                            >
-                                <option value="">Selecciona...</option>
-                                {tiposDocumento.map((t) => (
-                                    <option key={t.codTipoDocumento} value={t.codTipoDocumento}>
-                                        {t.nombre}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="field-group">
-                            <label className="field-label">Número Documento *</label>
                             <input
+                                type="text"
                                 className="readonly-input"
-                                value={nuevoAlumno.documento}
-                                onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, documento: e.target.value })}
+                                placeholder="Buscar por código, nombre o documento..."
+                                value={busquedaAlumno}
+                                onChange={(e) => setBusquedaAlumno(e.target.value)}
+                                style={{ marginBottom: '1rem', maxWidth: '420px' }}
                             />
-                        </div>
-                    </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                        <div className="field-group">
-                            <label className="field-label">Nombres *</label>
-                            <input
-                                className="readonly-input"
-                                value={nuevoAlumno.nombres}
-                                onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, nombres: e.target.value })}
-                            />
-                        </div>
+                            <table className="users-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Código</th>
+                                        <th>Alumno</th>
+                                        <th>Documento</th>
+                                        <th>Nivel / Aula</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
 
-                        <div className="field-group">
-                            <label className="field-label">Apellido Paterno *</label>
-                            <input
-                                className="readonly-input"
-                                value={nuevoAlumno.apPaterno}
-                                onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, apPaterno: e.target.value })}
-                            />
-                        </div>
+                                <tbody>
+                                    {alumnosFiltradosGeneral.map((alumno, index) => (
+                                        <tr key={alumno.id}>
+                                            <td>{index + 1}</td>
+                                            <td>{alumno.codigo}</td>
+                                            <td>{alumno.apPaterno} {alumno.apMaterno}, {alumno.nombres}</td>
+                                            <td>{alumno.tipoDoc} {alumno.documento}</td>
+                                            <td>{alumno.nivel} {alumno.grado}</td>
+                                            <td>
+                                                <span className={`matric-badge ${matriculaBadgeClass(alumno.estado)}`}>
+                                                    {alumno.estado}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
 
-                        <div className="field-group">
-                            <label className="field-label">Apellido Materno *</label>
-                            <input
-                                className="readonly-input"
-                                value={nuevoAlumno.apMaterno}
-                                onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, apMaterno: e.target.value })}
-                            />
-                        </div>
+                            <p className="table-footer-note">
+                                Mostrando {alumnosFiltradosGeneral.length} alumnos registrados.
+                            </p>
 
-                        <div className="field-group">
-                            <label className="field-label">Fecha de Nacimiento *</label>
-                            <input
-                                type="date"
-                                className="readonly-input"
-                                value={nuevoAlumno.fechaNacimiento}
-                                onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, fechaNacimiento: e.target.value })}
-                            />
-                        </div>
-                    </div>
+                            {showNuevoAlumnoModal && (
+                                <div
+                                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+                                    onClick={() => setShowNuevoAlumnoModal(false)}
+                                >
+                                    <form
+                                        className="perm-box"
+                                        style={{ background: 'white', width: '760px', maxHeight: '80vh', overflowY: 'auto', padding: '1.25rem' }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onSubmit={guardarNuevoAlumno}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                            <h3 className="section-title" style={{ margin: 0 }}>Nuevo Alumno</h3>
+                                            <button type="button" className="icon-btn" onClick={() => setShowNuevoAlumnoModal(false)}>✕</button>
+                                        </div>
 
-                    {alumnoError && (
-                        <div className="warning-banner" style={{ marginBottom: '1rem' }}>
-                            {alumnoError}
-                        </div>
-                    )}
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                                            <div className="field-group">
+                                                <label className="field-label">Código</label>
+                                                <input className="readonly-input" value="Autogenerado" disabled />
+                                            </div>
 
-                    <p className="table-footer-note">
-                        VALIDACIONES APLICADAS <br></br>
-                        . Tipo Documento + Número Documento -+ Unique Key (no se permite duplicar)<br></br>
-. Nombres / Apellidos -+ solo texto, sin caracteres especiales ni numeros<br></br>
-. Fecha de Nacimiento -+ formato de fecha válido<br></br>
-                    </p>
+                                            <div className="field-group">
+                                                <label className="field-label">Tipo Documento *</label>
+                                                <select
+                                                    className="filter-select"
+                                                    value={nuevoAlumno.codTipoDocumento}
+                                                    onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, codTipoDocumento: e.target.value })}
+                                                >
+                                                    <option value="">Selecciona...</option>
+                                                    {tiposDocumento.map((t) => (
+                                                        <option key={t.codTipoDocumento} value={t.codTipoDocumento}>
+                                                            {t.nombre}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
 
-                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
-                        <button
-                            type="button"
-                            className="btn-primary-outline"
-                            onClick={() => setShowNuevoAlumnoModal(false)}
-                        >
-                            Cancelar
-                        </button>
+                                            <div className="field-group">
+                                                <label className="field-label">Número Documento *</label>
+                                                <input
+                                                    className="readonly-input"
+                                                    value={nuevoAlumno.documento}
+                                                    onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, documento: e.target.value })}
+                                                />
+                                            </div>
+                                        </div>
 
-                        <button type="submit" className="apply-btn" style={{ width: '130px' }}>
-                            Guardar
-                        </button>
-                    </div>
-                </form>
-            </div>
-        )}
-    </main>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                                            <div className="field-group">
+                                                <label className="field-label">Nombres *</label>
+                                                <input
+                                                    className="readonly-input"
+                                                    value={nuevoAlumno.nombres}
+                                                    onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, nombres: e.target.value })}
+                                                />
+                                            </div>
+
+                                            <div className="field-group">
+                                                <label className="field-label">Apellido Paterno *</label>
+                                                <input
+                                                    className="readonly-input"
+                                                    value={nuevoAlumno.apPaterno}
+                                                    onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, apPaterno: e.target.value })}
+                                                />
+                                            </div>
+
+                                            <div className="field-group">
+                                                <label className="field-label">Apellido Materno *</label>
+                                                <input
+                                                    className="readonly-input"
+                                                    value={nuevoAlumno.apMaterno}
+                                                    onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, apMaterno: e.target.value })}
+                                                />
+                                            </div>
+
+                                            <div className="field-group">
+                                                <label className="field-label">Fecha de Nacimiento *</label>
+                                                <input
+                                                    type="date"
+                                                    className="readonly-input"
+                                                    value={nuevoAlumno.fechaNacimiento}
+                                                    onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, fechaNacimiento: e.target.value })}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {alumnoError && (
+                                            <div className="warning-banner" style={{ marginBottom: '1rem' }}>
+                                                {alumnoError}
+                                            </div>
+                                        )}
+
+                                        <p className="table-footer-note">
+                                            VALIDACIONES APLICADAS <br></br>
+                                            . Tipo Documento + Número Documento -+ Unique Key (no se permite duplicar)<br></br>
+                                            . Nombres / Apellidos -+ solo texto, sin caracteres especiales ni numeros<br></br>
+                                            . Fecha de Nacimiento -+ formato de fecha válido<br></br>
+                                        </p>
+
+                                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+                                            <button
+                                                type="button"
+                                                className="btn-primary-outline"
+                                                onClick={() => setShowNuevoAlumnoModal(false)}
+                                            >
+                                                Cancelar
+                                            </button>
+
+                                            <button type="submit" className="apply-btn" style={{ width: '130px' }}>
+                                                Guardar
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            )}
+                        </main>
                     ) : activeTab === 'aulas' ? (
                         <>
                             <main className="dash-content">
@@ -2186,11 +2268,32 @@ const deudaPendiente2025 = historialPagosDetalle
                         <main className="dash-content" style={{ flex: 1 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                                 <h3 className="section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <IconConceptos /> Conceptos — año {anioConceptos}
+                                    <IconConceptos /> Conceptos — año {anioConceptosLabel}
                                 </h3>
-                                <button className="btn-primary-outline" type="button" onClick={clonarAAnioSiguiente}>
-                                    ⤓ Clonar a {anioSiguienteConceptos}
-                                </button>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <select
+                                        className="filter-select"
+                                        value={selectedAnioConceptoId ?? ''}
+                                        onChange={(e) => setSelectedAnioConceptoId(Number(e.target.value))}
+                                    >
+                                        {aniosAcademicosCatalogo.map(a => (
+                                            <option key={a.codAnioAcademico} value={a.codAnioAcademico}>{a.anio}</option>
+                                        ))}
+                                    </select>
+                                    <select
+                                        className="filter-select"
+                                        value={anioDestinoClonar}
+                                        onChange={(e) => setAnioDestinoClonar(e.target.value)}
+                                    >
+                                        <option value="">Clonar a...</option>
+                                        {aniosAcademicosCatalogo
+                                            .filter(a => a.codAnioAcademico !== selectedAnioConceptoId)
+                                            .map(a => <option key={a.codAnioAcademico} value={a.codAnioAcademico}>{a.anio}</option>)}
+                                    </select>
+                                    <button className="btn-primary-outline" type="button" onClick={clonarAAnioSiguiente} disabled={!anioDestinoClonar || guardandoConcepto}>
+                                        ⤓ Clonar
+                                    </button>
+                                </div>
                             </div>
 
                             <table className="users-table">
@@ -2225,11 +2328,11 @@ const deudaPendiente2025 = historialPagosDetalle
                                                 <td>
                                                     {isEditing ? (
                                                         <select
-                                                            value={editDraft.tipo}
-                                                            onChange={(e) => setEditDraft({ ...editDraft, tipo: e.target.value })}
+                                                            value={editDraft.codTipoConcepto}
+                                                            onChange={(e) => setEditDraft({ ...editDraft, codTipoConcepto: e.target.value })}
                                                             style={{ padding: '0.3rem 0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
                                                         >
-                                                            {tiposConcepto.map(t => <option key={t} value={t}>{t}</option>)}
+                                                            {tiposConceptoCatalogo.map(t => <option key={t.codTipoConcepto} value={t.codTipoConcepto}>{t.nombre}</option>)}
                                                         </select>
                                                     ) : concepto.tipo}
                                                 </td>
@@ -2258,7 +2361,7 @@ const deudaPendiente2025 = historialPagosDetalle
                                                         className={`status-badge ${concepto.obligatorio ? 'status-active' : 'status-deleted'}`}
                                                         style={{ cursor: 'pointer' }}
                                                         title="Clic para alternar"
-                                                        onClick={() => toggleObligatorio(concepto.id)}
+                                                        onClick={() => toggleObligatorio(concepto)}
                                                     >
                                                         {concepto.obligatorio ? 'sí' : 'no'}
                                                     </span>
@@ -2299,11 +2402,12 @@ const deudaPendiente2025 = historialPagosDetalle
                                         style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
                                     />
                                     <select
-                                        value={newConcepto.tipo}
-                                        onChange={(e) => setNewConcepto({ ...newConcepto, tipo: e.target.value })}
+                                        value={newConcepto.codTipoConcepto}
+                                        onChange={(e) => setNewConcepto({ ...newConcepto, codTipoConcepto: e.target.value })}
                                         style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
                                     >
-                                        {tiposConcepto.map(t => <option key={t} value={t}>{t}</option>)}
+                                        <option value="">Tipo...</option>
+                                        {tiposConceptoCatalogo.map(t => <option key={t.codTipoConcepto} value={t.codTipoConcepto}>{t.nombre}</option>)}
                                     </select>
                                     <input
                                         type="number"
