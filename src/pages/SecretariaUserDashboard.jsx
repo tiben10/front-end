@@ -5,6 +5,9 @@ import { useTabHistory } from '../hooks/useTabHistory';
 import { cambiarPassword } from '../services/usuarioService';
 import { logout } from '../services/authService';
 import Reportes from '../components/Reportes';
+import { listarAulas } from '../services/aulaService';
+import { listarAlumnos } from '../services/alumnoService';
+import { listarMatriculas } from '../services/matriculaService';
 
 const TOTP_STEP = 30; // segundos que dura cada codigo, igual que Google Authenticator
 
@@ -219,6 +222,10 @@ const SecretariaUserDashboard = () => {
 const [busquedaAlumno, setBusquedaAlumno] = useState('');
 const [showNuevoAlumnoModal, setShowNuevoAlumnoModal] = useState(false);
 const [alumnoError, setAlumnoError] = useState('');
+const [matriculasBackend, setMatriculasBackend] = useState([]);
+const [alumnosMatriculadosPorAnio, setAlumnosMatriculadosPorAnio] = useState({});
+const [cargandoDatosAcademicos, setCargandoDatosAcademicos] = useState(true);
+const [errorCargaAcademica, setErrorCargaAcademica] = useState('');
 
 const [nuevoAlumno, setNuevoAlumno] = useState({
     tipoDoc: 'DNI',
@@ -243,6 +250,7 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
     const [anioMatricula, setAnioMatricula] = useState('2026');
     const [nombreAlumnoMatricula, setNombreAlumnoMatricula] = useState('');
     const [alumnoMatriculaSeleccionado, setAlumnoMatriculaSeleccionado] = useState(false);
+    const [alumnoMatriculaSeleccionadoObj, setAlumnoMatriculaSeleccionadoObj] = useState(null);
     const [selectedAulaMatriculaId, setSelectedAulaMatriculaId] = useState(null);
     const [showAlumnoModal, setShowAlumnoModal] = useState(false);
     const [showAulaModal, setShowAulaModal] = useState(false);
@@ -373,6 +381,119 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
         }, 1000);
         return () => clearInterval(interval);
     }, [show2FAModal]);
+    // Carga aulas, alumnos y matrículas reales desde el backend y las adapta al formato que usa el panel
+useEffect(() => {
+    let activo = true;
+
+    const cargarDatosAcademicos = async () => {
+        setCargandoDatosAcademicos(true);
+        setErrorCargaAcademica('');
+        try {
+            const [aulasBackend, alumnosBackend, matriculasReales] = await Promise.all([
+                listarAulas(),
+                listarAlumnos(),
+                listarMatriculas()
+            ]);
+            if (!activo) return;
+
+            // Cuántos alumnos con matrícula activa tiene cada aula (para cupo/estado)
+            const activasPorAula = {};
+            matriculasReales.forEach((m) => {
+                if (m.estado === 'activa' && m.aula?.codAula) {
+                    activasPorAula[m.aula.codAula] = (activasPorAula[m.aula.codAula] || 0) + 1;
+                }
+            });
+
+            const aulasMapeadas = aulasBackend
+                .filter((a) => a.estado)
+                .map((a) => {
+                    const ocupadas = activasPorAula[a.codAula] || 0;
+                    return {
+                        id: a.codAula,
+                        nivel: a.nivel?.nombre || '',
+                        grado: a.grado?.nombre || '',
+                        seccion: a.seccion,
+                        alumnos: ocupadas,
+                        cupo: a.capacidadMaxima,
+                        estado: calcularEstadoAula(ocupadas, a.capacidadMaxima),
+                        anio: a.anioAcademico?.anio || ''
+                    };
+                });
+
+            // Alumnos matriculados por aula, para la pestaña "Aulas" (listado)
+            const porAula = {};
+            matriculasReales
+                .slice()
+                .sort((a, b) => a.codMatricula - b.codMatricula)
+                .forEach((m) => {
+                    const codAula = m.aula?.codAula;
+                    if (!codAula) return;
+                    const lista = porAula[codAula] || [];
+                    const nombreCompleto = `${m.alumno?.apellidoPaterno || ''} ${m.alumno?.apellidoMaterno || ''}, ${m.alumno?.nombres || ''}`.trim();
+                    lista.push({
+                        n: lista.length + 1,
+                        nombre: nombreCompleto,
+                        matricula: m.estado,
+                        aud: `M-${m.codMatricula}`,
+                        codAlumno: m.alumno?.codAlumno
+                    });
+                    porAula[codAula] = lista;
+                });
+
+            // Set de alumnos ya matriculados por año, para no ofrecerlos de nuevo al matricular
+            const matriculadosPorAnio = {};
+            matriculasReales.forEach((m) => {
+                if (m.estado !== 'activa') return;
+                const anio = m.anioAcademico?.anio;
+                const codAlumno = m.alumno?.codAlumno;
+                if (!anio || !codAlumno) return;
+                if (!matriculadosPorAnio[anio]) matriculadosPorAnio[anio] = [];
+                matriculadosPorAnio[anio].push(codAlumno);
+            });
+
+            // Nivel/grado vigente de cada alumno, según su matrícula activa más reciente (para la pestaña Alumnos)
+            const nivelGradoPorAlumno = {};
+            matriculasReales.forEach((m) => {
+                if (m.estado !== 'activa') return;
+                const codAlumno = m.alumno?.codAlumno;
+                if (!codAlumno) return;
+                nivelGradoPorAlumno[codAlumno] = {
+                    nivel: m.aula?.nivel?.nombre || '',
+                    grado: m.aula?.grado?.nombre ? `${m.aula.grado.nombre} ${m.aula.seccion}` : ''
+                };
+            });
+
+            const alumnosMapeados = alumnosBackend.map((al) => ({
+                id: al.codAlumno,
+                codigo: `AL${String(al.codAlumno).padStart(4, '0')}`,
+                documento: al.numeroDocumento,
+                tipoDoc: al.tipoDocumento?.nombre || '',
+                nombres: al.nombres,
+                apPaterno: al.apellidoPaterno,
+                apMaterno: al.apellidoMaterno,
+                nivel: nivelGradoPorAlumno[al.codAlumno]?.nivel || 'Sin matrícula',
+                grado: nivelGradoPorAlumno[al.codAlumno]?.grado || '',
+                estado: al.estado ? 'activa' : 'inactiva'
+            }));
+
+            if (!activo) return;
+            setAulas(aulasMapeadas);
+            setAlumnosPorAula(porAula);
+            setAlumnosGeneral(alumnosMapeados);
+            setMatriculasBackend(matriculasReales);
+            setAlumnosMatriculadosPorAnio(matriculadosPorAnio);
+            if (aulasMapeadas.length > 0) setSelectedAulaId((prev) => prev ?? aulasMapeadas[0].id);
+        } catch (err) {
+            console.error('Error al cargar datos académicos', err);
+            if (activo) setErrorCargaAcademica('No se pudieron cargar aulas/alumnos desde el servidor.');
+        } finally {
+            if (activo) setCargandoDatosAcademicos(false);
+        }
+    };
+
+    cargarDatosAcademicos();
+    return () => { activo = false; };
+}, []);
 
     const aulasFiltradas = aulas.filter(a => (nivelFiltro === 'Todos' || a.nivel === nivelFiltro) && a.anio === anioAcademico);
     const selectedAula = aulas.find(a => a.id === selectedAulaId) || null;
@@ -852,6 +973,17 @@ const deudaPendiente2025 = historialPagosDetalle
                                     </div>
                                 </div>
 
+
+                                {cargandoDatosAcademicos && (
+                                    <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '-0.5rem' }}>
+                                        Cargando aulas y alumnos desde el servidor…
+                                    </p>
+                                )}
+                                {errorCargaAcademica && (
+                                    <div className="warning-banner">
+                                        <IconWarning /> {errorCargaAcademica}
+                                    </div>
+                                )}
                                 <div className="field-group">
     <label className="field-label">Alumno (apellidos y nombre)</label>
 
