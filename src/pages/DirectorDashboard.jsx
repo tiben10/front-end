@@ -6,6 +6,25 @@ import '../Styles/Dashboard.css';
 import { useTabHistory } from '../hooks/useTabHistory';
 import { cambiarPassword } from '../services/usuarioService';
 import { logout } from '../services/authService';
+import { listarMatriculas } from '../services/matriculaService';
+import { listarAlumnos } from '../services/alumnoService';
+import { listarCuotasPago } from '../services/pagoService';
+
+const IconRegistros = () => (
+    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><path d="M9 12h6"></path><path d="M9 16h6"></path></svg>
+);
+const IconMatricula = () => (
+    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+);
+const IconPagos = () => (
+    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><rect x="1" y="4" width="22" height="16" rx="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+);
+const IconAlumnos = () => (
+    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+);
+const IconClave = () => (
+    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+);
 
 const matriculasRecientes = [
     { id: '001', alumno: 'Chinga Ramos, Carlos', aula: 'Sec. 1° A', fecha: '10/03/2026', estado: 'activa', registradoPor: 'secretaria01' },
@@ -20,6 +39,16 @@ const estadoMatriculaClass = (estado) => {
         default: return 'matric-trasladada';
     }
 };
+
+const matriculaBadgeClass = (estado) => {
+    switch ((estado || '').toLowerCase()) {
+        case 'activa': return 'matric-activa';
+        case 'pendiente': return 'matric-pendiente';
+        case 'trasladada': return 'matric-trasladada';
+        default: return 'matric-activa';
+    }
+};
+
 const DirectorDashboard = () => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('registros');
@@ -32,6 +61,18 @@ const [claveExito, setClaveExito] = useState(false);
 
 const [permisosMenu, setPermisosMenu] = useState({ matricula: false, pagos: false, alumnos: false });
 const [loadingPermisos, setLoadingPermisos] = useState(true);
+
+// Datos reales para las vistas de Matrícula / Pagos / Alumnos (solo lectura)
+const [matriculas, setMatriculas] = useState([]);
+const [alumnosBackend, setAlumnosBackend] = useState([]);
+const [cargandoDatos, setCargandoDatos] = useState(true);
+const [errorDatos, setErrorDatos] = useState('');
+const [busquedaAlumno, setBusquedaAlumno] = useState('');
+
+const [codAlumnoPagos, setCodAlumnoPagos] = useState('');
+const [cuotasPagos, setCuotasPagos] = useState([]);
+const [cargandoCuotas, setCargandoCuotas] = useState(false);
+const [errorCuotas, setErrorCuotas] = useState('');
 
 useEffect(() => {
     const cargarPermisosMenu = async () => {
@@ -68,6 +109,87 @@ useEffect(() => {
     };
     cargarPermisosMenu();
 }, []);
+
+// Carga matrículas y alumnos reales desde el backend para las vistas de solo lectura del Director
+useEffect(() => {
+    let activo = true;
+    const cargarDatos = async () => {
+        setCargandoDatos(true);
+        setErrorDatos('');
+        try {
+            const [matriculasBackend, alumnosData] = await Promise.all([
+                listarMatriculas(),
+                listarAlumnos()
+            ]);
+            if (!activo) return;
+            setMatriculas(matriculasBackend);
+            setAlumnosBackend(alumnosData);
+        } catch (err) {
+            console.error('Error cargando datos del director:', err);
+            if (activo) setErrorDatos('No se pudieron cargar los datos desde el servidor.');
+        } finally {
+            if (activo) setCargandoDatos(false);
+        }
+    };
+    cargarDatos();
+    return () => { activo = false; };
+}, []);
+
+// Consulta las cuotas del alumno seleccionado en la pestaña Pagos
+useEffect(() => {
+    if (!codAlumnoPagos) {
+        setCuotasPagos([]);
+        return;
+    }
+    let activo = true;
+    const cargarCuotas = async () => {
+        setCargandoCuotas(true);
+        setErrorCuotas('');
+        try {
+            const data = await listarCuotasPago(codAlumnoPagos, undefined);
+            if (activo) setCuotasPagos(data || []);
+        } catch (err) {
+            console.error('Error cargando cuotas:', err);
+            if (activo) setErrorCuotas('No se pudieron cargar las cuotas de este alumno.');
+        } finally {
+            if (activo) setCargandoCuotas(false);
+        }
+    };
+    cargarCuotas();
+    return () => { activo = false; };
+}, [codAlumnoPagos]);
+
+// Nivel/grado vigente de cada alumno, según su matrícula activa más reciente
+const nivelGradoPorAlumno = {};
+matriculas.forEach((m) => {
+    if ((m.estado || '').toLowerCase() !== 'activa') return;
+    const codAlumno = m.alumno?.codAlumno;
+    if (!codAlumno) return;
+    nivelGradoPorAlumno[codAlumno] = {
+        nivel: m.aula?.nivel?.nombre || '',
+        grado: m.aula?.grado?.nombre ? `${m.aula.grado.nombre} ${m.aula.seccion || ''}`.trim() : ''
+    };
+});
+
+const alumnosMapeados = alumnosBackend.map((al) => ({
+    id: al.codAlumno,
+    codigo: `AL${String(al.codAlumno).padStart(4, '0')}`,
+    documento: al.numeroDocumento,
+    tipoDoc: al.tipoDocumento?.nombre || '',
+    nombreCompleto: `${al.apellidoPaterno || ''} ${al.apellidoMaterno || ''}, ${al.nombres || ''}`.trim(),
+    nivel: nivelGradoPorAlumno[al.codAlumno]?.nivel || 'Sin matrícula',
+    grado: nivelGradoPorAlumno[al.codAlumno]?.grado || '',
+    estado: al.estado ? 'activo' : 'inactivo'
+}));
+
+const alumnosFiltrados = alumnosMapeados.filter((a) => {
+    const texto = `${a.codigo} ${a.nombreCompleto} ${a.documento}`.toLowerCase();
+    return texto.includes(busquedaAlumno.toLowerCase());
+});
+
+const matriculasOrdenadas = matriculas
+    .slice()
+    .sort((a, b) => (b.codMatricula || 0) - (a.codMatricula || 0));
 
 const cambiarClave = async () => {
     setClaveError('');
@@ -140,7 +262,7 @@ const cambiarClave = async () => {
                             className={`sidebar-item ${activeTab === 'registros' ? 'active' : ''}`}
                             onClick={() => setActiveTab('registros')}
                         >
-                            📋 Registros
+                            <IconRegistros /> Registros
                         </button>
 
                         <button
@@ -149,7 +271,7 @@ const cambiarClave = async () => {
     onClick={() => setActiveTab('matricula')}
     title={!permisosMenu.matricula ? 'No tienes permiso para ver esta sección' : ''}
 >
-    🎓 Matrícula
+    <IconMatricula /> Matrícula
 </button>
 
 <button
@@ -158,7 +280,7 @@ const cambiarClave = async () => {
     onClick={() => setActiveTab('pagos')}
     title={!permisosMenu.pagos ? 'No tienes permiso para ver esta sección' : ''}
 >
-    💳 Pagos
+    <IconPagos /> Pagos
 </button>
 
 <button
@@ -167,13 +289,13 @@ const cambiarClave = async () => {
     onClick={() => setActiveTab('alumnos')}
     title={!permisosMenu.alumnos ? 'No tienes permiso para ver esta sección' : ''}
 >
-    👨‍🎓 Alumnos
+    <IconAlumnos /> Alumnos
 </button>
                         <button
                             className={`sidebar-item ${activeTab === 'clave' ? 'active' : ''}`}
                             onClick={() => setActiveTab('clave')}
                         >
-                            🔑 Mi clave
+                            <IconClave /> Mi clave
                         </button>
 
                     </aside>
@@ -234,6 +356,182 @@ const cambiarClave = async () => {
                                     👁 Vista de lectura — no se permiten modificaciones
                                 </div>
                             </>
+                        ) : activeTab === 'matricula' ? (
+    <main className="dash-content dash-content-full">
+        <h3 className="section-title">Matrículas registradas</h3>
+        <p className="table-footer-note" style={{ marginTop: '-0.5rem', marginBottom: '1rem' }}>
+            Listado completo de matrículas del sistema.
+        </p>
+
+        {cargandoDatos ? (
+            <p>Cargando matrículas...</p>
+        ) : errorDatos ? (
+            <p style={{ color: '#dc2626' }}>{errorDatos}</p>
+        ) : (
+            <table className="users-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Alumno</th>
+                        <th>Aula</th>
+                        <th>Año</th>
+                        <th>Fecha matrícula</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {matriculasOrdenadas.map((m) => (
+                        <tr key={m.codMatricula}>
+                            <td>{m.codMatricula}</td>
+                            <td>{m.alumno?.apellidoPaterno} {m.alumno?.apellidoMaterno}, {m.alumno?.nombres}</td>
+                            <td>{m.aula?.nivel?.nombre} {m.aula?.grado?.nombre} {m.aula?.seccion}</td>
+                            <td>{m.anioAcademico?.anio}</td>
+                            <td>{m.fechaMatricula}</td>
+                            <td>
+                                <span className={`matric-badge ${matriculaBadgeClass(m.estado)}`}>
+                                    {m.estado}
+                                </span>
+                            </td>
+                        </tr>
+                    ))}
+                    {matriculasOrdenadas.length === 0 && (
+                        <tr><td colSpan="6" className="table-footer-note">No hay matrículas registradas.</td></tr>
+                    )}
+                </tbody>
+            </table>
+        )}
+
+        <div className="table-footer-note">
+            👁 Mostrando {matriculasOrdenadas.length} matrícula(s) — vista de lectura, no se permiten modificaciones
+        </div>
+    </main>
+                        ) : activeTab === 'pagos' ? (
+    <main className="dash-content dash-content-full">
+        <h3 className="section-title">Consulta de pagos</h3>
+        <p className="table-footer-note" style={{ marginTop: '-0.5rem', marginBottom: '1rem' }}>
+            Selecciona un alumno para revisar el estado de sus cuotas.
+        </p>
+
+        <div className="field-group" style={{ maxWidth: '420px' }}>
+            <label className="field-label">Alumno</label>
+            <select
+                className="filter-select"
+                style={{ width: '100%' }}
+                value={codAlumnoPagos}
+                onChange={(e) => setCodAlumnoPagos(e.target.value)}
+            >
+                <option value="">Selecciona un alumno...</option>
+                {alumnosMapeados.map((a) => (
+                    <option key={a.id} value={a.id}>{a.nombreCompleto} — {a.codigo}</option>
+                ))}
+            </select>
+        </div>
+
+        {!codAlumnoPagos ? (
+            <div className="empty-aula-detail" style={{ marginTop: '1rem' }}>
+                👈 Selecciona un alumno con el selector de arriba para ver sus cuotas.
+            </div>
+        ) : cargandoCuotas ? (
+            <p style={{ marginTop: '1rem' }}>Cargando cuotas...</p>
+        ) : errorCuotas ? (
+            <p style={{ color: '#dc2626', marginTop: '1rem' }}>{errorCuotas}</p>
+        ) : (
+            <>
+                <table className="pagos-table" style={{ marginTop: '1rem' }}>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Concepto</th>
+                            <th>Monto</th>
+                            <th>Estado</th>
+                            <th>Fecha de pago</th>
+                            <th>Recibo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {cuotasPagos.map((cuota, index) => (
+                            <tr key={cuota.codCuota}>
+                                <td>{index + 1}</td>
+                                <td>{cuota.concepto?.nombreConcepto}</td>
+                                <td>S/ {cuota.montoCobrado}</td>
+                                <td>
+                                    {(cuota.estado || '').toUpperCase() === 'PAGADO' ? (
+                                        <span className="estado-pagado-pill">pagado</span>
+                                    ) : (
+                                        <span className="estado-deuda-pill">pendiente</span>
+                                    )}
+                                </td>
+                                <td>{cuota.fechaPago ? new Date(cuota.fechaPago).toLocaleDateString() : '—'}</td>
+                                <td>{cuota.recibo || '—'}</td>
+                            </tr>
+                        ))}
+                        {cuotasPagos.length === 0 && (
+                            <tr><td colSpan="6" className="table-footer-note">Este alumno no tiene cuotas registradas.</td></tr>
+                        )}
+                    </tbody>
+                </table>
+
+                <div className="table-footer-note">
+                    👁 Vista de lectura — el Director no puede procesar pagos desde este panel.
+                </div>
+            </>
+        )}
+    </main>
+                        ) : activeTab === 'alumnos' ? (
+    <main className="dash-content dash-content-full">
+        <h3 className="section-title">Alumnos registrados</h3>
+
+        <input
+            type="text"
+            className="readonly-input"
+            placeholder="Buscar por código, nombre o documento..."
+            value={busquedaAlumno}
+            onChange={(e) => setBusquedaAlumno(e.target.value)}
+            style={{ marginBottom: '1rem', maxWidth: '420px' }}
+        />
+
+        {cargandoDatos ? (
+            <p>Cargando alumnos...</p>
+        ) : errorDatos ? (
+            <p style={{ color: '#dc2626' }}>{errorDatos}</p>
+        ) : (
+            <table className="users-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Código</th>
+                        <th>Alumno</th>
+                        <th>Documento</th>
+                        <th>Nivel / Aula</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {alumnosFiltrados.map((alumno, index) => (
+                        <tr key={alumno.id}>
+                            <td>{index + 1}</td>
+                            <td>{alumno.codigo}</td>
+                            <td>{alumno.nombreCompleto}</td>
+                            <td>{alumno.tipoDoc} {alumno.documento}</td>
+                            <td>{alumno.nivel} {alumno.grado}</td>
+                            <td>
+                                <span className={`status-badge ${alumno.estado === 'activo' ? 'status-active' : 'status-deleted'}`}>
+                                    {alumno.estado}
+                                </span>
+                            </td>
+                        </tr>
+                    ))}
+                    {alumnosFiltrados.length === 0 && (
+                        <tr><td colSpan="6" className="table-footer-note">No se encontraron alumnos.</td></tr>
+                    )}
+                </tbody>
+            </table>
+        )}
+
+        <p className="table-footer-note">
+            Mostrando {alumnosFiltrados.length} alumno(s) — vista de lectura, no se permiten modificaciones.
+        </p>
+    </main>
                         ) : activeTab === 'clave' ? (
     <main className="dash-content dash-content-full">
         <h3 className="section-title">Cambiar Clave</h3>
