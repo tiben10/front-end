@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import '../Styles/Login.css';
 import { useNavigate } from 'react-router-dom';
-import { login } from '../services/authService';
+import { login, logout } from '../services/authService';
 import Swal from 'sweetalert2';
 
 const LoginIcon = () => (
@@ -19,19 +19,32 @@ const ProfileCard = ({ profile }) => {
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async () => {
-        if (!username || !password) {
-            Swal.fire('Faltan datos', 'Ingresa usuario y contraseña.', 'warning');
-            return;
-        }
-        setLoading(true);
-        try {
-            const claims = await login(username, password);
-            const rol = claims?.rol?.toUpperCase();
+         if (!username || !password) {
+             Swal.fire('Faltan datos', 'Ingresa usuario y contraseña.', 'warning');
+             return;
+         }
+         setLoading(true);
+         try {
+             const claims = await login(username, password);
+             const rol = claims?.rol?.toUpperCase();
 
-            if (rol === 'DIRECTOR') navigate('/director-dashboard');
-            else if (rol === 'SECRETARIA') navigate('/secretaria-dashboard');
-            else navigate('/dashboard'); // SUPERUSUARIO
-        } catch (error) {
+            // El rol real del usuario debe coincidir con el perfil (tarjeta)
+            // donde se ingresó el login. Si no coincide, se rechaza el
+            // acceso aunque las credenciales sean válidas.
+            if (rol !== profile.expectedRol) {
+                logout(); // limpia el token/rol que login() ya había guardado
+                Swal.fire(
+                    'Acceso no permitido',
+                    `El usuario "${username}" no tiene el perfil de ${profile.role}. Ingresa por la tarjeta correspondiente a tu rol (${rol ? rol.charAt(0) + rol.slice(1).toLowerCase() : 'desconocido'}).`,
+                    'error'
+                );
+                return;
+            }
+
+             if (rol === 'DIRECTOR') navigate('/director-dashboard');
+             else if (rol === 'SECRETARIA') navigate('/secretaria-dashboard');
+             else navigate('/dashboard'); // SUPERUSUARIO
+         } catch (error) {
             const msg = (error.response?.status === 401 || error.response?.status === 403)
                 ? 'Usuario o contraseña incorrectos.'
                 : 'No se pudo conectar con el servidor.';
@@ -79,8 +92,8 @@ const ProfileCard = ({ profile }) => {
                 </div>
 
                 <div className="button-group">
-                    <button type="button" className={`btn ${profile.theme.btnClass}`} onClick={handleLogin}>
-                        <LoginIcon /> Ingresar
+                    <button type="button" className={`btn ${profile.theme.btnClass}`} onClick={handleLogin} disabled={loading}>
++                        <LoginIcon /> {loading ? 'Ingresando...' : 'Ingresar'}
                     </button>
                 </div>
             </div>
@@ -91,10 +104,10 @@ const ProfileCard = ({ profile }) => {
 const LoginSelection = () => {
     const profilesData = [
         //{ id: 1, initials: 'AC', role: 'LOGIN', access: 'Inicio de Sesion', theme: { headerClass: 'su-header', badgeClass: 'su-badge', btnClass: 'su-btn' } },
-        { id: 1, initials: 'SU', role: 'Superusuario', access: 'acceso total', theme: { headerClass: 'su-header', badgeClass: 'su-badge', btnClass: 'su-btn' } },
-        { id: 2, initials: 'DI', role: 'Director', access: 'solo lectura', theme: { headerClass: 'di-header', badgeClass: 'di-badge', btnClass: 'di-btn' } },
-        { id: 3, initials: 'SE', role: 'Secretaria', access: 'operaciones', theme: { headerClass: 'se-header', badgeClass: 'se-badge', btnClass: 'se-btn' } }
-    ];
+        { id: 1, initials: 'SU', role: 'Superusuario', expectedRol: 'SUPERUSUARIO', access: 'acceso total', theme: { headerClass: 'su-header', badgeClass: 'su-badge', btnClass: 'su-btn' } },
+        { id: 2, initials: 'DI', role: 'Director', expectedRol: 'DIRECTOR', access: 'solo lectura', theme: { headerClass: 'di-header', badgeClass: 'di-badge', btnClass: 'di-btn' } },
+        { id: 3, initials: 'SE', role: 'Secretaria', expectedRol: 'SECRETARIA', access: 'operaciones', theme: { headerClass: 'se-header', badgeClass: 'se-badge', btnClass: 'se-btn' } }
+     ];
 
     return (
         <div className="login-wrapper">
