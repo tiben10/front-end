@@ -4,6 +4,7 @@ import '../Styles/Dashboard.css';
 import { useTabHistory } from '../hooks/useTabHistory';
 import { cambiarPassword } from '../services/usuarioService';
 import { logout } from '../services/authService';
+import { decodeJwt } from '../services/jwt';
 import Reportes from '../components/Reportes';
 import { listarAulas } from '../services/aulaService';
 import { listarAlumnos, registrarAlumno } from '../services/alumnoService';
@@ -246,6 +247,14 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
     const [claveConfirmar, setClaveConfirmar] = useState('');
     const [claveError, setClaveError] = useState('');
     const [claveExito, setClaveExito] = useState(false);
+    const [currentUsername, setCurrentUsername] = useState('');
+
+    // Toma el usuario real que inicio sesion desde el token JWT
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        const claims = token ? decodeJwt(token) : null;
+        if (claims?.sub) setCurrentUsername(claims.sub);
+    }, []);
     const [showNewAulaForm, setShowNewAulaForm] = useState(false);
     const [newAula, setNewAula] = useState({ nivel: 'Inicial', grado: '', seccion: '', anio: '2026', cupo: '25' });
     const [newAulaError, setNewAulaError] = useState('');
@@ -934,7 +943,7 @@ const deudaPendiente2025 = historialPagosDetalle
                     </div>
                     <div className="dash-header-right">
                         <span className="badge-su" style={{ backgroundColor: '#ffedd5', color: '#c2410c' }}>SE</span>
-                        <span className="user-name">María Torres</span>
+                        <span className="user-name">{currentUsername || 'secretaria'}</span>
                         <span className="role-badge role-se">secretaria</span>
                     </div>
                     <button className="logout-btn" onClick={handleLogout} title="Cerrar sesión">

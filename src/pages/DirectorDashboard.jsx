@@ -6,6 +6,7 @@ import '../Styles/Dashboard.css';
 import { useTabHistory } from '../hooks/useTabHistory';
 import { cambiarPassword } from '../services/usuarioService';
 import { logout } from '../services/authService';
+import { decodeJwt } from '../services/jwt';
 import { listarMatriculas } from '../services/matriculaService';
 import { listarAlumnos } from '../services/alumnoService';
 import { listarCuotasPago } from '../services/pagoService';
@@ -61,6 +62,14 @@ const [claveExito, setClaveExito] = useState(false);
 
 const [permisosMenu, setPermisosMenu] = useState({ matricula: false, pagos: false, alumnos: false });
 const [loadingPermisos, setLoadingPermisos] = useState(true);
+const [currentUsername, setCurrentUsername] = useState('');
+
+// Toma el usuario real que inicio sesion desde el token JWT
+useEffect(() => {
+    const token = localStorage.getItem('token');
+    const claims = token ? decodeJwt(token) : null;
+    if (claims?.sub) setCurrentUsername(claims.sub);
+}, []);
 
 // Datos reales para las vistas de Matrícula / Pagos / Alumnos (solo lectura)
 const [matriculas, setMatriculas] = useState([]);
@@ -247,8 +256,8 @@ const cambiarClave = async () => {
 
                     <div className="dash-header-right">
                         <span className="badge-su" style={{ backgroundColor: '#dbeafe', color: '#1d4ed8' }}>DI</span>
-                        <span className="user-name">Juan Ríos</span>
-                        <span className="role-badge role-di">solo lectura</span>
+                        <span className="user-name">{currentUsername || 'director'}</span>
+                        <span className="user-name">{currentUsername || 'director'}</span>
                     </div>
                     <button className="logout-btn" onClick={handleLogout} title="Cerrar sesión">
                         <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
