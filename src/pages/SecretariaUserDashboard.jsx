@@ -3,36 +3,50 @@ import { useNavigate } from 'react-router-dom';
 import '../Styles/Dashboard.css';
 import { useTabHistory } from '../hooks/useTabHistory';
 import { cambiarPassword } from '../services/usuarioService';
-import { logout } from '../services/authService';
+import { logout, generar2FA } from '../services/authService';
 import { decodeJwt } from '../services/jwt';
 import Reportes from '../components/Reportes';
 import { listarAulas } from '../services/aulaService';
 import { listarAlumnos, registrarAlumno } from '../services/alumnoService';
-import { listarMatriculas } from '../services/matriculaService';
+import { listarMatriculas, registrarMatricula  } from '../services/matriculaService';
 import { tipoDocumentoService } from '../services/catalogoService';
 
 const TOTP_STEP = 30; // segundos que dura cada codigo, igual que Google Authenticator
 
-// Genera un codigo de 6 digitos deterministico por ventana de 30s (simula un TOTP sin backend real)
-const generarCodigoTOTP = () => {
-    const ventana = Math.floor(Date.now() / 1000 / TOTP_STEP);
-    const semilla = `SIGEA-2FA-${ventana}`;
-    let hash = 0;
-    for (let i = 0; i < semilla.length; i++) {
-        hash = (hash * 31 + semilla.charCodeAt(i)) >>> 0;
+// Decodifica un secreto Base32 (el que devuelve /auth/generar-2fa) a bytes
+const base32Decode = (base32) => {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    let bits = '';
+    for (const char of base32.replace(/=+$/, '')) {
+        bits += alphabet.indexOf(char.toUpperCase()).toString(2).padStart(5, '0');
     }
-    return String(hash % 1000000).padStart(6, '0');
+    const bytes = [];
+    for (let i = 0; i + 8 <= bits.length; i += 8) {
+        bytes.push(parseInt(bits.slice(i, i + 8), 2));
+    }
+    return new Uint8Array(bytes);
 };
 
-// Secreto de la cuenta de Google Authenticator de la secretaria (simulado: ya "configurado" de antes).
-// En un backend real este secreto se genera una sola vez por usuario y se guarda cifrado.
-const SECRETO_2FA_RAW = 'JBSWY3DPEHPK3PXP';
-const SECRETO_2FA_FORMATEADO = SECRETO_2FA_RAW.match(/.{1,4}/g).join(' '); // "JBSW Y3DP EHPK 3PXP"
-const CUENTA_2FA = 'secretaria@sigea';
-const OTPAUTH_URI = `otpauth://totp/SIGEA:${encodeURIComponent(CUENTA_2FA)}?secret=${SECRETO_2FA_RAW}&issuer=SIGEA`;
-const QR_2FA_URL = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(OTPAUTH_URI)}`;
+// Genera el código TOTP REAL (RFC 6238) a partir del secreto real del usuario
+const generarCodigoTOTP = async (secretBase32) => {
+    if (!secretBase32) return '------';
+    const key = base32Decode(secretBase32);
+    const counter = Math.floor(Date.now() / 1000 / TOTP_STEP);
+    const counterBytes = new ArrayBuffer(8);
+    new DataView(counterBytes).setBigUint64(0, BigInt(counter));
 
-
+    const cryptoKey = await crypto.subtle.importKey(
+        'raw', key, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']
+    );
+    const signature = new Uint8Array(await crypto.subtle.sign('HMAC', cryptoKey, counterBytes));
+    const offset = signature[19] & 0xf;
+    const codeInt =
+        ((signature[offset] & 0x7f) << 24) |
+        ((signature[offset + 1] & 0xff) << 16) |
+        ((signature[offset + 2] & 0xff) << 8) |
+        (signature[offset + 3] & 0xff);
+    return String(codeInt % 1000000).padStart(6, '0');
+};
 
 const mockAulas = [
     { id: 1, nivel: 'Inicial', grado: '3 años', seccion: 'A', alumnos: 20, cupo: 25, estado: 'disponible', anio: '2026' },
@@ -284,8 +298,10 @@ const [alumnoMatriculaSeleccionadoObj, setAlumnoMatriculaSeleccionadoObj] = useS
     const [secretoCopiado, setSecretoCopiado] = useState(false);
     const [codigo2FAInput, setCodigo2FAInput] = useState('');
     const [error2FA, setError2FA] = useState('');
-    const [codigoActual2FA, setCodigoActual2FA] = useState(() => generarCodigoTOTP());
+    const [codigoActual2FA, setCodigoActual2FA] = useState('------');
     const [segundosRestantes2FA, setSegundosRestantes2FA] = useState(() => TOTP_STEP - (Math.floor(Date.now() / 1000) % TOTP_STEP));
+    const [secreto2FA, setSecreto2FA] = useState(null);   // { secret, qrUrl } real, viene del backend
+    const [cargando2FA, setCargando2FA] = useState(false);
 
     
     const [anioConsultaPagos, setAnioConsultaPagos] = useState('2026');
@@ -387,14 +403,15 @@ const [alumnoMatriculaSeleccionadoObj, setAlumnoMatriculaSeleccionadoObj] = useS
     };
 
     useEffect(() => {
-        if (!show2FAModal) return;
-        const interval = setInterval(() => {
-            const ahora = Math.floor(Date.now() / 1000);
-            setSegundosRestantes2FA(TOTP_STEP - (ahora % TOTP_STEP));
-            setCodigoActual2FA(generarCodigoTOTP());
-        }, 1000);
+        if (!show2FAModal || !secreto2FA) return;
+        const actualizarCodigo = async () => {
+            setSegundosRestantes2FA(TOTP_STEP - (Math.floor(Date.now() / 1000) % TOTP_STEP));
+            setCodigoActual2FA(await generarCodigoTOTP(secreto2FA.secret));
+        };
+        actualizarCodigo();
+        const interval = setInterval(actualizarCodigo, 1000);
         return () => clearInterval(interval);
-    }, [show2FAModal]);
+    }, [show2FAModal, secreto2FA]);
     // Carga aulas, alumnos y matrículas reales desde el backend y las adapta al formato que usa el panel
 useEffect(() => {
     let activo = true;
@@ -777,38 +794,6 @@ const alumnosDisponiblesModal = alumnosGeneral
         setMatriculaMensaje('');
     };
 
-    
-    const matricularAlumno = () => {
-        if (!nombreAlumnoMatricula.trim() || !selectedAulaMatricula) return;
-        if (aulaMatriculaLlena) return;
-
-        const aulaId = selectedAulaMatricula.id;
-
-        
-        setAulas(prev => prev.map(a => {
-            if (a.id !== aulaId) return a;
-            const nuevosAlumnos = a.alumnos + 1;
-            return { ...a, alumnos: nuevosAlumnos, estado: calcularEstadoAula(nuevosAlumnos, a.cupo) };
-        }));
-
-        
-        setAlumnosPorAula(prev => {
-            const listaActual = prev[aulaId] || [];
-            const siguienteN = listaActual.length > 0 ? Math.max(...listaActual.map(a => a.n)) + 1 : 1;
-            const audCode = `${selectedAulaMatricula.nivel.slice(0, 3).toLowerCase()}${String(aulaId).padStart(2, '0')}`;
-
-            return {
-                ...prev,
-                [aulaId]: [
-                    ...listaActual,
-                    { n: siguienteN, nombre: nombreAlumnoMatricula.trim(), matricula: 'activa', aud: audCode }
-                ]
-            };
-        });
-
-        setMatriculaMensaje(`✓ ${nombreAlumnoMatricula.trim()} matriculado en ${selectedAulaMatricula.nivel} ${selectedAulaMatricula.grado} ${selectedAulaMatricula.seccion} — ${anioMatricula}`);
-        setTimeout(() => setMatriculaMensaje(''), 3000);
-    };
 
     // Abre el modal de confirmacion de contrasena (primer paso, antes de mostrar el Authenticator)
     const abrirVerificacion2FA = () => {
@@ -821,7 +806,7 @@ const alumnosDisponiblesModal = alumnosGeneral
 
     // Valida la contrasena (SIMULACION: no hay backend, se acepta cualquier valor de al menos 4 caracteres)
     // y, si es correcta, pasa al segundo paso: mostrar el Google Authenticator (QR o secreto) + input del codigo.
-    const confirmarPassword2FA = (e) => {
+    const confirmarPassword2FA = async (e) => {
         e.preventDefault();
         if (!claveVerificacion2FA.trim()) {
             setErrorPassword2FA('Ingresa tu contraseña para continuar.');
@@ -832,20 +817,32 @@ const alumnosDisponiblesModal = alumnosGeneral
             return;
         }
 
+        // Si aun no tenemos un secreto 2FA real, lo pedimos al backend (solo la primera vez)
+        if (!secreto2FA) {
+            setCargando2FA(true);
+            try {
+                const datos = await generar2FA(); // { secret, qrUrl }
+                setSecreto2FA(datos);
+            } catch (err) {
+                setErrorPassword2FA('No se pudo generar el código de verificación. Intenta de nuevo.');
+                setCargando2FA(false);
+                return;
+            }
+            setCargando2FA(false);
+        }
+
         setShowPasswordModal(false);
         setClaveVerificacion2FA('');
         setError2FA('');
         setCodigo2FAInput('');
         setMetodo2FA('qr');
-        setCodigoActual2FA(generarCodigoTOTP());
-        setSegundosRestantes2FA(TOTP_STEP - (Math.floor(Date.now() / 1000) % TOTP_STEP));
         setShow2FAModal(true);
     };
 
     // Copia el secreto manual de Google Authenticator al portapapeles
     const copiarSecreto2FA = async () => {
         try {
-            await navigator.clipboard.writeText(SECRETO_2FA_RAW);
+            await navigator.clipboard.writeText(secreto2FA?.secret || '');
             setSecretoCopiado(true);
             setTimeout(() => setSecretoCopiado(false), 2000);
         } catch {
@@ -853,15 +850,60 @@ const alumnosDisponiblesModal = alumnosGeneral
         }
     };
 
-    // Valida el codigo ingresado contra el codigo TOTP vigente y, si coincide, matricula
-    const confirmarCodigo2FA = (e) => {
+    // Envia el codigo TOTP real al backend, que valida y crea la matricula de verdad
+    const confirmarCodigo2FA = async (e) => {
         e.preventDefault();
-        if (codigo2FAInput.trim() !== codigoActual2FA) {
-            setError2FA('Código incorrecto. Revisa tu app Google Authenticator e inténtalo de nuevo.');
+        setError2FA('');
+
+        if (!alumnoMatriculaSeleccionadoObj?.id || !selectedAulaMatricula?.id) {
+            setError2FA('Selecciona un alumno y un aula válidos antes de continuar.');
             return;
         }
-        setShow2FAModal(false);
-        matricularAlumno();
+
+        try {
+            const nuevaMatricula = await registrarMatricula(
+                alumnoMatriculaSeleccionadoObj.id,
+                selectedAulaMatricula.id,
+                codigo2FAInput.trim()
+            );
+
+            setShow2FAModal(false);
+            setCodigo2FAInput('');
+            setMatriculaMensaje(`✓ ${nombreAlumnoMatricula.trim()} matriculado correctamente (matrícula #${nuevaMatricula.codMatricula}).`);
+            setTimeout(() => setMatriculaMensaje(''), 4000);
+
+            // Refresca aulas y matrículas reales desde el backend
+            const [aulasBackend, matriculasReales] = await Promise.all([listarAulas(), listarMatriculas()]);
+            const activasPorAula = {};
+            matriculasReales.forEach((m) => {
+                if (m.estado === 'activa' && m.aula?.codAula) {
+                    activasPorAula[m.aula.codAula] = (activasPorAula[m.aula.codAula] || 0) + 1;
+                }
+            });
+            const aulasMapeadas = aulasBackend
+                .filter((a) => a.estado)
+                .map((a) => {
+                    const ocupadas = activasPorAula[a.codAula] || 0;
+                    return {
+                        id: a.codAula,
+                        nivel: a.nivel?.nombre || '',
+                        grado: a.grado?.nombre || '',
+                        seccion: a.seccion,
+                        alumnos: ocupadas,
+                        cupo: a.capacidadMaxima,
+                        estado: calcularEstadoAula(ocupadas, a.capacidadMaxima),
+                        anio: a.anioAcademico?.anio || ''
+                    };
+                });
+            setAulas(aulasMapeadas);
+            setMatriculasBackend(matriculasReales);
+
+        } catch (err) {
+            const msg = typeof err.response?.data === 'string'
+                ? err.response.data
+                : 'No se pudo registrar la matrícula.';
+            setError2FA(msg);
+        }
     };
 
     
@@ -1271,7 +1313,7 @@ const deudaPendiente2025 = historialPagosDetalle
                                             {metodo2FA === 'qr' ? (
                                                 <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
                                                     <img
-                                                        src={QR_2FA_URL}
+                                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(secreto2FA?.qrUrl || '')}`}
                                                         width={160}
                                                         height={160}
                                                         alt="Código QR para Google Authenticator"
@@ -1284,10 +1326,10 @@ const deudaPendiente2025 = historialPagosDetalle
                                             ) : (
                                                 <div className="perm-box" style={{ background: '#f9fafb', marginBottom: '1rem', textAlign: 'center' }}>
                                                     <p style={{ fontSize: '0.68rem', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.03em', margin: '0 0 0.4rem 0' }}>
-                                                        Clave secreta · cuenta {CUENTA_2FA}
+                                                        Clave secreta
                                                     </p>
                                                     <p style={{ fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.15em', fontSize: '1.05rem', margin: '0 0 0.65rem 0', color: '#111827' }}>
-                                                        {SECRETO_2FA_FORMATEADO}
+                                                        {secreto2FA?.secret ? secreto2FA.secret.match(/.{1,4}/g).join(' ') : '------'}
                                                     </p>
                                                     <button type="button" className="btn-primary-outline" onClick={copiarSecreto2FA}>
                                                         {secretoCopiado ? '✓ Copiado' : 'Copiar clave'}
