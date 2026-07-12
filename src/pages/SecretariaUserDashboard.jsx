@@ -6,8 +6,9 @@ import { cambiarPassword } from '../services/usuarioService';
 import { logout } from '../services/authService';
 import Reportes from '../components/Reportes';
 import { listarAulas } from '../services/aulaService';
-import { listarAlumnos } from '../services/alumnoService';
+import { listarAlumnos, registrarAlumno } from '../services/alumnoService';
 import { listarMatriculas } from '../services/matriculaService';
+import { tipoDocumentoService } from '../services/catalogoService';
 
 const TOTP_STEP = 30; // segundos que dura cada codigo, igual que Google Authenticator
 
@@ -227,8 +228,11 @@ const [alumnosMatriculadosPorAnio, setAlumnosMatriculadosPorAnio] = useState({})
 const [cargandoDatosAcademicos, setCargandoDatosAcademicos] = useState(true);
 const [errorCargaAcademica, setErrorCargaAcademica] = useState('');
 
+const [tiposDocumento, setTiposDocumento] = useState([]);
+const [guardandoAlumno, setGuardandoAlumno] = useState(false);
+
 const [nuevoAlumno, setNuevoAlumno] = useState({
-    tipoDoc: 'DNI',
+    codTipoDocumento: '',
     documento: '',
     nombres: '',
     apPaterno: '',
@@ -491,9 +495,21 @@ useEffect(() => {
         }
     };
 
-    cargarDatosAcademicos();
-    return () => { activo = false; };
-}, []);
+   cargarDatosAcademicos();
+        return () => { activo = false; };
+    }, []);
+
+    // Carga los tipos de documento reales (DNI, CE, etc.) para el formulario de Nuevo Alumno
+    useEffect(() => {
+        let activo = true;
+        tipoDocumentoService.listar()
+            .then((data) => {
+                if (!activo) return;
+                setTiposDocumento(data.filter((t) => t.estado));
+            })
+            .catch((err) => console.error('Error al cargar tipos de documento', err));
+        return () => { activo = false; };
+    }, []);
 
     const aulasFiltradas = aulas.filter(a => (nivelFiltro === 'Todos' || a.nivel === nivelFiltro) && a.anio === anioAcademico);
     const selectedAula = aulas.find(a => a.id === selectedAulaId) || null;
@@ -510,11 +526,12 @@ useEffect(() => {
     return texto.includes(busquedaAlumno.toLowerCase());
 });
 
-const guardarNuevoAlumno = (e) => {
+const guardarNuevoAlumno = async (e) => {
     e.preventDefault();
     setAlumnoError('');
 
     if (
+        !nuevoAlumno.codTipoDocumento ||
         !nuevoAlumno.documento.trim() ||
         !nuevoAlumno.nombres.trim() ||
         !nuevoAlumno.apPaterno.trim() ||
@@ -525,38 +542,52 @@ const guardarNuevoAlumno = (e) => {
         return;
     }
 
-    const nuevoId =
-        alumnosGeneral.length > 0
-            ? Math.max(...alumnosGeneral.map((a) => a.id)) + 1
-            : 1;
+    setGuardandoAlumno(true);
+    try {
+        const alumnoGuardado = await registrarAlumno({
+            codTipoDocumento: Number(nuevoAlumno.codTipoDocumento),
+            numeroDocumento: nuevoAlumno.documento.trim(),
+            nombres: nuevoAlumno.nombres.trim(),
+            apellidoPaterno: nuevoAlumno.apPaterno.trim(),
+            apellidoMaterno: nuevoAlumno.apMaterno.trim(),
+            fechaNacimiento: nuevoAlumno.fechaNacimiento
+        });
 
-    const alumnoCreado = {
-        id: nuevoId,
-        codigo: `AL${String(nuevoId).padStart(4, '0')}`,
-        documento: nuevoAlumno.documento,
-        tipoDoc: nuevoAlumno.tipoDoc,
-        nombres: nuevoAlumno.nombres,
-        apPaterno: nuevoAlumno.apPaterno,
-        apMaterno: nuevoAlumno.apMaterno,
-        nivel: 'Sin matrícula',
-        grado: '-',
-        estado: 'pendiente'
-    };
+        const tipoDocNombre = tiposDocumento.find(
+            (t) => t.codTipoDocumento === Number(nuevoAlumno.codTipoDocumento)
+        )?.nombre || '';
 
-    setAlumnosGeneral((prev) => [...prev, alumnoCreado]);
+        const alumnoCreado = {
+            id: alumnoGuardado.codAlumno,
+            codigo: `AL${String(alumnoGuardado.codAlumno).padStart(4, '0')}`,
+            documento: alumnoGuardado.numeroDocumento,
+            tipoDoc: tipoDocNombre,
+            nombres: alumnoGuardado.nombres,
+            apPaterno: alumnoGuardado.apellidoPaterno,
+            apMaterno: alumnoGuardado.apellidoMaterno,
+            nivel: 'Sin matrícula',
+            grado: '',
+            estado: 'activa'
+        };
 
-    setNuevoAlumno({
-        tipoDoc: 'DNI',
-        documento: '',
-        nombres: '',
-        apPaterno: '',
-        apMaterno: '',
-        fechaNacimiento: ''
-    });
+        setAlumnosGeneral((prev) => [...prev, alumnoCreado]);
 
-    setShowNuevoAlumnoModal(false);
-    setActiveTab('aulas');
-};   
+        setNuevoAlumno({
+            codTipoDocumento: '',
+            documento: '',
+            nombres: '',
+            apPaterno: '',
+            apMaterno: '',
+            fechaNacimiento: ''
+        });
+        setShowNuevoAlumnoModal(false);
+    } catch (err) {
+        const msg = err.response?.data;
+        setAlumnoError(typeof msg === 'string' ? msg : 'No se pudo registrar el alumno.');
+    } finally {
+        setGuardandoAlumno(false);
+    }
+}; 
     
     const crearAula = (e) => {
         e.preventDefault();
@@ -1722,15 +1753,19 @@ const deudaPendiente2025 = historialPagosDetalle
                             <input className="readonly-input" value="Autogenerado" disabled />
                         </div>
 
-                        <div className="field-group">
+                       <div className="field-group">
                             <label className="field-label">Tipo Documento *</label>
                             <select
                                 className="filter-select"
-                                value={nuevoAlumno.tipoDoc}
-                                onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, tipoDoc: e.target.value })}
+                                value={nuevoAlumno.codTipoDocumento}
+                                onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, codTipoDocumento: e.target.value })}
                             >
-                                <option value="DNI">DNI</option>
-                                <option value="CE">CE</option>
+                                <option value="">Selecciona...</option>
+                                {tiposDocumento.map((t) => (
+                                    <option key={t.codTipoDocumento} value={t.codTipoDocumento}>
+                                        {t.nombre}
+                                    </option>
+                                ))}
                             </select>
                         </div>
 
