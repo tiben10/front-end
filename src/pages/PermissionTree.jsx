@@ -41,7 +41,7 @@ function agruparPorCategoria(functionalities) {
 
 // Checkbox controlado que soporta estado "indeterminate" de forma confiable
 // (usar useRef + useEffect en vez de un ref inline evita problemas de timing).
-const Checkbox = ({ checked, indeterminate = false, onChange }) => {
+const Checkbox = ({ checked, indeterminate = false, onChange, disabled = false }) => {
     const ref = useRef(null);
 
     useEffect(() => {
@@ -54,12 +54,13 @@ const Checkbox = ({ checked, indeterminate = false, onChange }) => {
             type="checkbox"
             checked={checked}
             onChange={onChange}
-            style={{ width: '1rem', height: '1rem', accentColor: '#2563eb', cursor: 'pointer', flexShrink: 0 }}
+            disabled={disabled}
+            style={{ width: '1rem', height: '1rem', accentColor: '#2563eb', cursor: disabled ? 'not-allowed' : 'pointer', flexShrink: 0, opacity: disabled ? 0.55 : 1 }}
         />
     );
 };
 
-const PermissionTree = ({ functionalities, permissions, onToggle }) => {
+const PermissionTree = ({ functionalities, permissions, onToggle, readOnly = false }) => {
     const grupos = useMemo(() => agruparPorCategoria(functionalities), [functionalities]);
     const nombresCategorias = Object.keys(grupos);
 
@@ -107,6 +108,7 @@ const PermissionTree = ({ functionalities, permissions, onToggle }) => {
     // Checkbox de la categoria (equivalente a onParentChange en Angular):
     // activa/desactiva TODAS las acciones de TODAS las funcionalidades del grupo.
     const handleToggleCategoria = (items) => {
+        if (readOnly) return;
         const target = !items.every(f => isFuncAllChecked(f));
         items.forEach(f => {
             ACCIONES.forEach(a => {
@@ -119,6 +121,7 @@ const PermissionTree = ({ functionalities, permissions, onToggle }) => {
     // Checkbox de la funcionalidad (equivalente a onLeafChange en Angular):
     // activa/desactiva TODAS las acciones de esa funcionalidad.
     const handleToggleFuncionalidad = (func) => {
+        if (readOnly) return;
         const target = !isFuncAllChecked(func);
         ACCIONES.forEach(a => {
             const actual = !!permissions[func.idFuncionalidad]?.[a.key];
@@ -169,6 +172,7 @@ const PermissionTree = ({ functionalities, permissions, onToggle }) => {
                                     checked={todosMarcados}
                                     indeterminate={!todosMarcados && algunoMarcado}
                                     onChange={() => handleToggleCategoria(grupo.items)}
+                                    disabled={readOnly}
                                 />
                                 <span>{grupo.icono}</span>
                                 <strong
@@ -200,6 +204,7 @@ const PermissionTree = ({ functionalities, permissions, onToggle }) => {
                                                 checked={funcTodoMarcado}
                                                 indeterminate={!funcTodoMarcado && funcAlgoMarcado}
                                                 onChange={() => handleToggleFuncionalidad(func)}
+                                                disabled={readOnly}
                                             />
                                             <span
                                                 style={{ fontSize: '0.85rem', color: '#1f2937', cursor: 'pointer' }}
@@ -216,6 +221,7 @@ const PermissionTree = ({ functionalities, permissions, onToggle }) => {
                                                         <Checkbox
                                                             checked={!!permsFunc[accion.key]}
                                                             onChange={() => onToggle(func.idFuncionalidad, accion.key)}
+                                                            disabled={readOnly}
                                                         />
                                                         <span style={{ fontSize: '0.8rem', color: '#374151' }}>{accion.label}</span>
                                                     </label>

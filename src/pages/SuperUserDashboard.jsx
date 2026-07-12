@@ -680,21 +680,14 @@ const SuperUserDashboard = () => {
                                                         functionalities={allFuncs}
                                                         permissions={userPermissions}
                                                         onToggle={handleToggleUser}
+                                                        readOnly
                                                     />
                                                 </>
                                             )}
 
-                                            <button
-                                                className="apply-btn"
-                                                onClick={applyUserPermissions}
-                                                disabled={selectedUser.rol?.nombreRol?.toUpperCase() === 'SUPERUSUARIO'}
-                                            >
-                                                ✓ Aplicar permisos
-                                            </button>
-
-                                            {savedMessage && (
-                                                <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#16a34a', fontWeight: 600 }}>
-                                                    ✓ Permisos actualizados para el rol {selectedUser.rol?.nombreRol?.toLowerCase()}
+                                            {selectedUser.rol?.nombreRol?.toUpperCase() !== 'SUPERUSUARIO' && (
+                                                <p style={{ marginTop: '0.6rem', fontSize: '0.78rem', color: '#9ca3af', fontStyle: 'italic' }}>
+                                                    Solo lectura aquí. Para modificar permisos, ve a la pestaña "Permisos".
                                                 </p>
                                             )}
                                         </div>
