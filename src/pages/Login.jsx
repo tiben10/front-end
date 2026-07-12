@@ -52,18 +52,7 @@ const ProfileCard = ({ profile }) => {
         } finally {
             setLoading(false);
         }
-       // BYPASS: login falso, no llama al backend
-        //localStorage.setItem('token', 'fake-token');
-        //localStorage.setItem('role', profile.role.toUpperCase());
-
-        const rol = profile.role.toUpperCase();
-        // replace: true saca el login del historial del navegador, para que el botón "atrás"
-        // nunca pueda volver a la pantalla de login una vez adentro del dashboard.
-        if (rol === 'DIRECTOR') navigate('/director-dashboard', { replace: true });
-        else if (rol === 'SECRETARIA') navigate('/secretaria-dashboard', { replace: true });
-        else navigate('/dashboard', { replace: true }); // SUPERUSUARIO
-
-        setLoading(false);
+       
 
     };
 
@@ -93,7 +82,7 @@ const ProfileCard = ({ profile }) => {
 
                 <div className="button-group">
                     <button type="button" className={`btn ${profile.theme.btnClass}`} onClick={handleLogin} disabled={loading}>
-+                        <LoginIcon /> {loading ? 'Ingresando...' : 'Ingresar'}
+                        <LoginIcon /> {loading ? 'Ingresando...' : 'Ingresar'}
                     </button>
                 </div>
             </div>
