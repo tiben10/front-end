@@ -254,7 +254,8 @@ const [nuevoAlumno, setNuevoAlumno] = useState({
     const [anioMatricula, setAnioMatricula] = useState('2026');
     const [nombreAlumnoMatricula, setNombreAlumnoMatricula] = useState('');
     const [alumnoMatriculaSeleccionado, setAlumnoMatriculaSeleccionado] = useState(false);
-    const [alumnoMatriculaSeleccionadoObj, setAlumnoMatriculaSeleccionadoObj] = useState(null);
+    
+const [alumnoMatriculaSeleccionadoObj, setAlumnoMatriculaSeleccionadoObj] = useState(null);
     const [selectedAulaMatriculaId, setSelectedAulaMatriculaId] = useState(null);
     const [showAlumnoModal, setShowAlumnoModal] = useState(false);
     const [showAulaModal, setShowAulaModal] = useState(false);
@@ -729,12 +730,15 @@ const guardarNuevoAlumno = async (e) => {
     const aulasDisponiblesModal = aulas.filter(a =>
         a.anio === anioMatricula && a.estado !== 'llena' && a.estado !== 'eliminada'
     );
-    const alumnosDisponiblesModal = aulas
-    .filter(a => a.anio === anioMatricula)
-    .flatMap(a => (alumnosPorAula[a.id] || []).map(al => ({
+    // Alumnos registrados (activos) que aún NO tienen matrícula activa en el año seleccionado
+const alumnosDisponiblesModal = alumnosGeneral
+    .filter(al => al.estado === 'activa')
+    .filter(al => !(alumnosMatriculadosPorAnio[anioMatricula] || []).includes(al.id))
+    .map(al => ({
         ...al,
-        aulaLabel: `${a.nivel} ${a.grado} "${a.seccion}"`
-    })))
+        nombre: `${al.apPaterno} ${al.apMaterno}, ${al.nombres}`,
+        aulaLabel: al.documento
+    }))
     .filter(al => {
         const q = nombreAlumnoMatricula.trim().toLowerCase();
         if (!q) return true;
@@ -745,6 +749,7 @@ const guardarNuevoAlumno = async (e) => {
     if (activeTab === 'matricula') {
         setNombreAlumnoMatricula(alumno.nombre);
         setAlumnoMatriculaSeleccionado(true);
+        setAlumnoMatriculaSeleccionadoObj(alumno.id ? alumno : null);
         setMatriculaMensaje('');
     }
 
