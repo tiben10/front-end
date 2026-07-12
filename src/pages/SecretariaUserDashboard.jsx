@@ -6,7 +6,8 @@ import { cambiarPassword } from '../services/usuarioService';
 import { logout, generar2FA } from '../services/authService';
 import { decodeJwt } from '../services/jwt';
 import Reportes from '../components/Reportes';
-import { listarAulas } from '../services/aulaService';
+import { listarAulas, crearAula as crearAulaApi } from '../services/aulaService';
+import { nivelService, gradoService } from '../services/catalogoService';
 import { listarAlumnos, registrarAlumno } from '../services/alumnoService';
 import { listarMatriculas, registrarMatricula } from '../services/matriculaService';
 import { tipoDocumentoService, tipoConceptoService, anioAcademicoService } from '../services/catalogoService';
@@ -264,8 +265,11 @@ const SecretariaUserDashboard = () => {
         if (claims?.sub) setCurrentUsername(claims.sub);
     }, []);
     const [showNewAulaForm, setShowNewAulaForm] = useState(false);
-    const [newAula, setNewAula] = useState({ nivel: 'Inicial', grado: '', seccion: '', anio: '2026', cupo: '25' });
+    const [newAula, setNewAula] = useState({ nivelNombre: 'Inicial', gradoNombre: '', codAnioAcademico: '', seccion: '', capacidadMaxima: '25' });
     const [newAulaError, setNewAulaError] = useState('');
+    const [nivelesCatalogo, setNivelesCatalogo] = useState([]);
+    const [gradosCatalogo, setGradosCatalogo] = useState([]);
+    const [aniosCatalogo, setAniosCatalogo] = useState([]);
 
 
     const [anioMatricula, setAnioMatricula] = useState('2026');
@@ -615,6 +619,20 @@ const SecretariaUserDashboard = () => {
         return () => { activo = false; };
     }, []);
 
+    // Carga los catálogos reales (niveles, grados, años academicos) para el formulario de "Nueva aula"
+    useEffect(() => {
+        let activo = true;
+        Promise.all([nivelService.listar(), gradoService.listar(), anioAcademicoService.listar()])
+            .then(([niveles, grados, anios]) => {
+                if (!activo) return;
+                setNivelesCatalogo(niveles.filter(n => n.estado));
+                setGradosCatalogo(grados.filter(g => g.estado));
+                setAniosCatalogo(anios.filter(a => a.estado));
+            })
+            .catch((err) => console.error('Error al cargar catálogos de aula', err));
+        return () => { activo = false; };
+    }, []);
+
     const aulasFiltradas = aulas.filter(a => (nivelFiltro === 'Todos' || a.nivel === nivelFiltro) && a.anio === anioAcademico);
     const selectedAula = aulas.find(a => a.id === selectedAulaId) || null;
     const alumnosDeAula = selectedAula ? (alumnosPorAula[selectedAula.id] || []) : [];
@@ -693,57 +711,92 @@ const SecretariaUserDashboard = () => {
         }
     };
 
-    const crearAula = (e) => {
+    const crearAula = async (e) => {
         e.preventDefault();
         setNewAulaError('');
 
-        const gradoLimpio = newAula.grado.trim();
+        const nivelTexto = newAula.nivelNombre.trim();
+        const gradoTexto = newAula.gradoNombre.trim();
         const seccionLimpia = newAula.seccion.trim().toUpperCase();
-        const cupoNumero = Number(newAula.cupo);
+        const capacidadNumero = Number(newAula.capacidadMaxima);
 
-        if (!gradoLimpio) {
+        if (!newAula.codAnioAcademico) {
+            setNewAulaError('Debes seleccionar el año académico.');
+            return;
+        }
+        if (!nivelTexto) {
+            setNewAulaError('Debes seleccionar el nivel.');
+            return;
+        }
+        if (!gradoTexto) {
             setNewAulaError('El grado es obligatorio (ej. "1°" o "3 años").');
             return;
         }
-        if (!seccionLimpia) {
-            setNewAulaError('La sección es obligatoria (ej. "A").');
+        if (!/^[A-Za-z]{1,2}$/.test(seccionLimpia)) {
+            setNewAulaError('La sección debe tener 1 o 2 letras (ej. "A", "B1").');
             return;
         }
-        if (!newAula.cupo || isNaN(cupoNumero) || cupoNumero <= 0) {
+        if (!newAula.capacidadMaxima || isNaN(capacidadNumero) || capacidadNumero <= 0) {
             setNewAulaError('El cupo debe ser un número mayor a 0.');
             return;
         }
 
-        const yaExiste = aulas.some(a =>
-            a.anio === newAula.anio &&
-            a.nivel === newAula.nivel &&
-            a.grado.trim().toLowerCase() === gradoLimpio.toLowerCase() &&
-            a.seccion.toUpperCase() === seccionLimpia
-        );
-        if (yaExiste) {
-            setNewAulaError(`Ya existe un aula ${newAula.nivel} ${gradoLimpio} "${seccionLimpia}" en el año ${newAula.anio}.`);
-            return;
+        try {
+            // Busca el nivel por nombre en el catálogo ya cargado; si no existe todavía, lo crea
+            let nivel = nivelesCatalogo.find(n => n.nombre.toLowerCase() === nivelTexto.toLowerCase());
+            if (!nivel) {
+                nivel = await nivelService.crear({ nombre: nivelTexto });
+                setNivelesCatalogo(prev => [...prev, nivel]);
+            }
+
+            // Busca el grado por nombre; si no existe todavía, lo crea (ej. "1°", "3 años")
+            let grado = gradosCatalogo.find(g => g.nombre.toLowerCase() === gradoTexto.toLowerCase());
+            if (!grado) {
+                grado = await gradoService.crear({ nombre: gradoTexto });
+                setGradosCatalogo(prev => [...prev, grado]);
+            }
+
+            const aulaCreada = await crearAulaApi({
+                codAnioAcademico: Number(newAula.codAnioAcademico),
+                codNivel: nivel.codNivel,
+                codGrado: grado.codGrado,
+                seccion: seccionLimpia,
+                capacidadMaxima: capacidadNumero
+            });
+
+            // Recarga aulas reales desde el backend (misma logica de mapeo que el useEffect inicial)
+            const aulasBackend = await listarAulas();
+            const matriculasReales = await listarMatriculas();
+            const activasPorAula = {};
+            matriculasReales.forEach((m) => {
+                if (m.estado === 'activa' && m.aula?.codAula) {
+                    activasPorAula[m.aula.codAula] = (activasPorAula[m.aula.codAula] || 0) + 1;
+                }
+            });
+            const aulasMapeadas = aulasBackend
+                .filter((a) => a.estado)
+                .map((a) => {
+                    const ocupadas = activasPorAula[a.codAula] || 0;
+                    return {
+                        id: a.codAula,
+                        nivel: a.nivel?.nombre || '',
+                        grado: a.grado?.nombre || '',
+                        seccion: a.seccion,
+                        alumnos: ocupadas,
+                        cupo: a.capacidadMaxima,
+                        estado: calcularEstadoAula(ocupadas, a.capacidadMaxima),
+                        anio: a.anioAcademico?.anio || ''
+                    };
+                });
+            setAulas(aulasMapeadas);
+
+            setSelectedAulaId(aulaCreada.codAula);
+            setNewAula({ nivelNombre: 'Inicial', gradoNombre: '', codAnioAcademico: newAula.codAnioAcademico, seccion: '', capacidadMaxima: '25' });
+            setShowNewAulaForm(false);
+        } catch (err) {
+            const msg = err.response?.data;
+            setNewAulaError(typeof msg === 'string' ? msg : 'No se pudo crear el aula.');
         }
-
-        const nuevoId = aulas.length > 0 ? Math.max(...aulas.map(a => a.id)) + 1 : 1;
-        const aulaNueva = {
-            id: nuevoId,
-            nivel: newAula.nivel,
-            grado: gradoLimpio,
-            seccion: seccionLimpia,
-            alumnos: 0,
-            cupo: cupoNumero,
-            estado: 'disponible',
-            anio: newAula.anio
-        };
-
-        setAulas(prev => [...prev, aulaNueva]);
-        setSelectedAulaId(nuevoId);
-        setAnioAcademico(newAula.anio);
-        setNivelFiltro('Todos');
-
-        setNewAula({ nivel: 'Inicial', grado: '', seccion: '', anio: newAula.anio, cupo: '25' });
-        setShowNewAulaForm(false);
     };
 
 
@@ -2031,8 +2084,18 @@ const SecretariaUserDashboard = () => {
                                 {showNewAulaForm && (
                                     <form onSubmit={crearAula} className="perm-box" style={{ marginBottom: '1.25rem', display: 'flex', flexWrap: 'wrap', gap: '0.6rem', alignItems: 'center' }}>
                                         <select
-                                            value={newAula.nivel}
-                                            onChange={(e) => setNewAula({ ...newAula, nivel: e.target.value })}
+                                            value={newAula.codAnioAcademico}
+                                            onChange={(e) => setNewAula({ ...newAula, codAnioAcademico: e.target.value })}
+                                            style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                                        >
+                                            <option value="">Año académico...</option>
+                                            {aniosCatalogo.map((a) => (
+                                                <option key={a.codAnioAcademico} value={a.codAnioAcademico}>{a.anio}</option>
+                                            ))}
+                                        </select>
+                                        <select
+                                            value={newAula.nivelNombre}
+                                            onChange={(e) => setNewAula({ ...newAula, nivelNombre: e.target.value })}
                                             style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
                                         >
                                             <option value="Inicial">Inicial</option>
@@ -2042,8 +2105,8 @@ const SecretariaUserDashboard = () => {
                                         <input
                                             type="text"
                                             placeholder='Grado (ej. "1°" o "3 años")'
-                                            value={newAula.grado}
-                                            onChange={(e) => setNewAula({ ...newAula, grado: e.target.value })}
+                                            value={newAula.gradoNombre}
+                                            onChange={(e) => setNewAula({ ...newAula, gradoNombre: e.target.value })}
                                             required
                                             style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', width: '160px' }}
                                         />
@@ -2056,21 +2119,12 @@ const SecretariaUserDashboard = () => {
                                             required
                                             style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', width: '90px' }}
                                         />
-                                        <select
-                                            value={newAula.anio}
-                                            onChange={(e) => setNewAula({ ...newAula, anio: e.target.value })}
-                                            style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-                                        >
-                                            <option value="2026">2026</option>
-                                            <option value="2025">2025</option>
-                                            <option value="2024">2024</option>
-                                        </select>
                                         <input
                                             type="number"
                                             placeholder="Cupo"
                                             min="1"
-                                            value={newAula.cupo}
-                                            onChange={(e) => setNewAula({ ...newAula, cupo: e.target.value })}
+                                            value={newAula.capacidadMaxima}
+                                            onChange={(e) => setNewAula({ ...newAula, capacidadMaxima: e.target.value })}
                                             required
                                             style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', width: '90px' }}
                                         />
