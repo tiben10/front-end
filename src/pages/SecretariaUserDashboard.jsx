@@ -817,18 +817,24 @@ const alumnosDisponiblesModal = alumnosGeneral
             return;
         }
 
-        // Si aun no tenemos un secreto 2FA real, lo pedimos al backend (solo la primera vez)
+        // Si aun no tenemos un secreto 2FA real, lo tomamos de localStorage o lo pedimos al backend UNA SOLA VEZ
         if (!secreto2FA) {
-            setCargando2FA(true);
-            try {
-                const datos = await generar2FA(); // { secret, qrUrl }
-                setSecreto2FA(datos);
-            } catch (err) {
-                setErrorPassword2FA('No se pudo generar el código de verificación. Intenta de nuevo.');
+            const guardado = localStorage.getItem(`secreto2FA_${currentUsername}`);
+            if (guardado) {
+                setSecreto2FA(JSON.parse(guardado));
+            } else {
+                setCargando2FA(true);
+                try {
+                    const datos = await generar2FA(); // { secret, qrUrl }
+                    localStorage.setItem(`secreto2FA_${currentUsername}`, JSON.stringify(datos));
+                    setSecreto2FA(datos);
+                } catch (err) {
+                    setErrorPassword2FA('No se pudo generar el código de verificación. Intenta de nuevo.');
+                    setCargando2FA(false);
+                    return;
+                }
                 setCargando2FA(false);
-                return;
             }
-            setCargando2FA(false);
         }
 
         setShowPasswordModal(false);
