@@ -73,6 +73,7 @@ const [codAlumnoPagos, setCodAlumnoPagos] = useState('');
 const [cuotasPagos, setCuotasPagos] = useState([]);
 const [cargandoCuotas, setCargandoCuotas] = useState(false);
 const [errorCuotas, setErrorCuotas] = useState('');
+const [cuotasPendientesAnio, setCuotasPendientesAnio] = useState(null); // conteo global, para la tarjeta de Registros
 
 useEffect(() => {
     const cargarPermisosMenu = async () => {
@@ -160,6 +161,24 @@ useEffect(() => {
     cargarCuotas();
     return () => { activo = false; };
 }, [codAlumnoPagos]);
+
+// Cuenta las cuotas pendientes del año vigente en TODO el colegio, para la tarjeta de Registros
+useEffect(() => {
+    let activo = true;
+    listarCuotasPago(undefined, undefined)
+        .then((data) => {
+            if (!activo) return;
+            const pendientesAnioVigente = (data || []).filter(
+                (c) => c.matricula?.anioAcademico?.anio === ANIO_VIGENTE && (c.estado || '').toUpperCase() === 'PENDIENTE'
+            );
+            setCuotasPendientesAnio(pendientesAnioVigente.length);
+        })
+        .catch((err) => {
+            console.error('Error contando cuotas pendientes:', err);
+            if (activo) setCuotasPendientesAnio(null);
+        });
+    return () => { activo = false; };
+}, []);
 
 // Nivel/grado vigente de cada alumno, según su matrícula activa más reciente
 const nivelGradoPorAlumno = {};
@@ -260,7 +279,6 @@ const cambiarClave = async () => {
                     <div className="dash-header-right">
                         <span className="badge-su" style={{ backgroundColor: '#dbeafe', color: '#1d4ed8' }}>DI</span>
                         <span className="user-name">{currentUsername || 'director'}</span>
-                        <span className="user-name">{currentUsername || 'director'}</span>
                     </div>
                     <button className="logout-btn" onClick={handleLogout} title="Cerrar sesión">
                         <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
@@ -328,8 +346,7 @@ const cambiarClave = async () => {
 
                                     <div className="director-summary-card">
                                         <p>Pagos pendientes</p>
-                {/* TODO: pendiente de un endpoint del backend que devuelva este conteo */}
-                <h1 className="director-danger-number">—</h1>
+                <h1 className="director-danger-number">{cuotasPendientesAnio === null ? '—' : cuotasPendientesAnio}</h1>
                                     </div>
                                 </div>
 
@@ -457,39 +474,68 @@ const cambiarClave = async () => {
             <p style={{ color: '#dc2626', marginTop: '1rem' }}>{errorCuotas}</p>
         ) : (
             <>
-                <table className="pagos-table" style={{ marginTop: '1rem' }}>
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Concepto</th>
-                            <th>Monto</th>
-                            <th>Estado</th>
-                            <th>Fecha de pago</th>
-                            <th>Recibo</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {cuotasPagos.map((cuota, index) => (
-                            <tr key={cuota.codCuota}>
-                                <td>{index + 1}</td>
-                                <td>{cuota.concepto?.nombreConcepto}</td>
-                                <td>S/ {cuota.montoCobrado}</td>
-                                <td>
-                                    {(cuota.estado || '').toUpperCase() === 'PAGADO' ? (
-                                        <span className="estado-pagado-pill">pagado</span>
-                                    ) : (
-                                        <span className="estado-deuda-pill">pendiente</span>
+                {(() => {
+                    const cuotasOrdenadas = [...cuotasPagos].sort((a, b) => {
+                        const anioA = a.matricula?.anioAcademico?.anio || '';
+                        const anioB = b.matricula?.anioAcademico?.anio || '';
+                        if (anioA !== anioB) return anioB.localeCompare(anioA);
+                        return (a.concepto?.ordenPago || 0) - (b.concepto?.ordenPago || 0);
+                    });
+                    const pendientesAnioAnterior = cuotasOrdenadas.filter((c) => {
+                        const anio = c.matricula?.anioAcademico?.anio;
+                        return anio && anio !== ANIO_VIGENTE && (c.estado || '').toUpperCase() === 'PENDIENTE';
+                    });
+
+                    return (
+                        <>
+                            {pendientesAnioAnterior.length > 0 && (
+                                <div className="warning-banner" style={{ marginBottom: '0.75rem' }}>
+                                    ⚠ Este alumno tiene {pendientesAnioAnterior.length} cuota(s) pendiente(s) de año(s) anterior(es) — no son del año {ANIO_VIGENTE}.
+                                </div>
+                            )}
+                            <table className="pagos-table" style={{ marginTop: '1rem' }}>
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Año</th>
+                                        <th>Concepto</th>
+                                        <th>Monto</th>
+                                        <th>Estado</th>
+                                        <th>Fecha de pago</th>
+                                        <th>Recibo</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {cuotasOrdenadas.map((cuota, index) => (
+                                        <tr key={cuota.codCuota}>
+                                            <td>{index + 1}</td>
+                                            <td>
+                                                {cuota.matricula?.anioAcademico?.anio}
+                                                {cuota.matricula?.anioAcademico?.anio !== ANIO_VIGENTE && (
+                                                    <span className="table-footer-note" style={{ marginLeft: '0.35rem' }}>(anterior)</span>
+                                                )}
+                                            </td>
+                                            <td>{cuota.concepto?.nombreConcepto}</td>
+                                            <td>S/ {cuota.montoCobrado}</td>
+                                            <td>
+                                                {(cuota.estado || '').toUpperCase() === 'PAGADO' ? (
+                                                    <span className="estado-pagado-pill">pagado</span>
+                                                ) : (
+                                                    <span className="estado-deuda-pill">pendiente</span>
+                                                )}
+                                            </td>
+                                            <td>{cuota.fechaPago ? new Date(cuota.fechaPago).toLocaleDateString() : '—'}</td>
+                                            <td>{cuota.recibo || '—'}</td>
+                                        </tr>
+                                    ))}
+                                    {cuotasOrdenadas.length === 0 && (
+                                        <tr><td colSpan="7" className="table-footer-note">Este alumno no tiene cuotas registradas.</td></tr>
                                     )}
-                                </td>
-                                <td>{cuota.fechaPago ? new Date(cuota.fechaPago).toLocaleDateString() : '—'}</td>
-                                <td>{cuota.recibo || '—'}</td>
-                            </tr>
-                        ))}
-                        {cuotasPagos.length === 0 && (
-                            <tr><td colSpan="6" className="table-footer-note">Este alumno no tiene cuotas registradas.</td></tr>
-                        )}
-                    </tbody>
-                </table>
+                                </tbody>
+                            </table>
+                        </>
+                    );
+                })()}
 
                 <div className="table-footer-note">
                     👁 Vista de lectura — el Director no puede procesar pagos desde este panel.
