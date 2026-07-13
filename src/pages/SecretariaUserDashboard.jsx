@@ -56,13 +56,6 @@ const generarCodigoTOTP = async (secretBase32) => {
     return String(codeInt % 1000000).padStart(6, '0');
 };
 
-const mockAulas = [
-    { id: 1, nivel: 'Inicial', grado: '3 años', seccion: 'A', alumnos: 20, cupo: 25, estado: 'disponible', anio: '2026' },
-    { id: 2, nivel: 'Inicial', grado: '3 años', seccion: 'B', alumnos: 18, cupo: 25, estado: 'disponible', anio: '2026' },
-    { id: 3, nivel: 'Primaria', grado: '1°', seccion: 'A', alumnos: 30, cupo: 35, estado: 'casi_llena', anio: '2026' },
-    { id: 4, nivel: 'Secundaria', grado: '1°', seccion: 'A', alumnos: 35, cupo: 35, estado: 'llena', anio: '2026' },
-    { id: 5, nivel: 'Secundaria', grado: '2°', seccion: 'A', alumnos: 28, cupo: 35, estado: 'eliminada', anio: '2026' }
-];
 
 
 const calcularEstadoAula = (alumnos, cupo) => {
@@ -71,44 +64,8 @@ const calcularEstadoAula = (alumnos, cupo) => {
     return 'disponible';
 };
 
-const mockAlumnosPorAula = {
-    1: [
-        { n: 1, nombre: 'Fernández Ruiz, Camila', matricula: 'activa', aud: 'ini01' },
-        { n: 2, nombre: 'Gómez Salas, Diego', matricula: 'activa', aud: 'ini01' },
-        { n: 3, nombre: 'Herrera Luna, Valeria', matricula: 'pendiente', aud: 'ini01' },
-        { n: 4, nombre: 'Ibarra Soto, Mateo', matricula: 'activa', aud: 'ini01' }
-    ],
-    2: [
-        { n: 1, nombre: 'Juárez Vega, Renata', matricula: 'activa', aud: 'ini02' },
-        { n: 2, nombre: 'Lozano Prado, Iker', matricula: 'activa', aud: 'ini02' },
-        { n: 3, nombre: 'Medina Cruz, Sofía', matricula: 'trasladada', aud: 'ini02' },
-        { n: 4, nombre: 'Nina Quispe, Adrián', matricula: 'activa', aud: 'ini02' }
-    ],
-    3: [
-        { n: 1, nombre: 'Ochoa Ríos, Fabricio', matricula: 'activa', aud: 'pri01' },
-        { n: 2, nombre: 'Paredes Mora, Ximena', matricula: 'activa', aud: 'pri01' },
-        { n: 3, nombre: 'Quiroz Bravo, Thiago', matricula: 'pendiente', aud: 'pri01' },
-        { n: 4, nombre: 'Rojas Ponce, Antonella', matricula: 'activa', aud: 'pri01' }
-    ],
-    4: [
-        { n: 1, nombre: 'Chinga Ramos, Carlos', matricula: 'activa', aud: 'sec01' },
-        { n: 2, nombre: 'López Díaz, Lucía', matricula: 'activa', aud: 'sec01' },
-        { n: 3, nombre: 'Quispe Meza, Pedro', matricula: 'pendiente', aud: 'sec01' },
-        { n: 4, nombre: 'Ramos Cruz, Ana', matricula: 'trasladada', aud: 'sec01' }
-    ],
-    5: [
-        { n: 1, nombre: 'Salas Vidal, Rodrigo', matricula: 'trasladada', aud: 'sec02' },
-        { n: 2, nombre: 'Torres Nina, Camila', matricula: 'trasladada', aud: 'sec02' },
-        { n: 3, nombre: 'Ugarte Campos, Bruno', matricula: 'trasladada', aud: 'sec02' },
-        { n: 4, nombre: 'Vera Chumpitaz, Diana', matricula: 'trasladada', aud: 'sec02' }
-    ]
-};
-const mockAlumnosGeneral = [
-    { id: 1, codigo: 'AL0001', documento: '75412638', tipoDoc: 'DNI', nombres: 'Carlos', apPaterno: 'Chinga', apMaterno: 'Ramos', nivel: 'Secundaria', grado: '1° A', estado: 'activa' },
-    { id: 2, codigo: 'AL0002', documento: '76451239', tipoDoc: 'DNI', nombres: 'Lucía', apPaterno: 'López', apMaterno: 'Díaz', nivel: 'Secundaria', grado: '1° A', estado: 'activa' },
-    { id: 3, codigo: 'AL0003', documento: '77561234', tipoDoc: 'DNI', nombres: 'Pedro', apPaterno: 'Quispe', apMaterno: 'Meza', nivel: 'Secundaria', grado: '1° A', estado: 'pendiente' },
-    { id: 4, codigo: 'AL0004', documento: '78562341', tipoDoc: 'DNI', nombres: 'Ana', apPaterno: 'Ramos', apMaterno: 'Cruz', nivel: 'Secundaria', grado: '1° A', estado: 'trasladada' }
-];
+
+
 
 
 
@@ -171,16 +128,6 @@ const matriculaBadgeClass = (estado) => {
 };
 
 
-
-const mockAlumnosMaestro = [
-    { apPaterno: 'Chinga', apMaterno: 'Ramos', nombre: 'Carlos' },
-    { apPaterno: 'Chinga', apMaterno: 'López', nombre: 'Ana' },
-    { apPaterno: 'Quispe', apMaterno: 'Meza', nombre: 'Pedro' },
-    { apPaterno: 'López', apMaterno: 'Díaz', nombre: 'Lucía' },
-    { apPaterno: 'Ramos', apMaterno: 'Cruz', nombre: 'Ana' },
-    { apPaterno: 'Torres', apMaterno: 'Nina', nombre: 'María' }
-];
-
 const tituloSuperiorPorTab = {
     matricula: 'SECRETARÍA — PANEL PRINCIPAL (TODAS LAS OPERACIONES)',
     pagos: 'SECRETARÍA — PAGOS',
@@ -195,19 +142,21 @@ const SecretariaUserDashboard = () => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('matricula');
     useTabHistory(activeTab, setActiveTab);
-    const [aulas, setAulas] = useState(mockAulas);
-    const [alumnosPorAula, setAlumnosPorAula] = useState(mockAlumnosPorAula);
+    const [aulas, setAulas] = useState([]);
+const [alumnosPorAula, setAlumnosPorAula] = useState({});
+const [alumnosGeneral, setAlumnosGeneral] = useState([]);
+const [selectedAulaId, setSelectedAulaId] = useState(null);
+    
     const [anioAcademico, setAnioAcademico] = useState('2026');
     const [nivelFiltro, setNivelFiltro] = useState('Todos');
-    // Aula seleccionada por defecto: Secundaria 1° A (id 4), igual que en la maqueta
-    const [selectedAulaId, setSelectedAulaId] = useState(4);
+    
     const [anioHistorico, setAnioHistorico] = useState('2026');
     const [showVerTodosModal, setShowVerTodosModal] = useState(false);
 
 
     const [anioAlumnos, setAnioAlumnos] = useState('2026');
     const [selectedAulaAlumnosId, setSelectedAulaAlumnosId] = useState(null);
-    const [alumnosGeneral, setAlumnosGeneral] = useState(mockAlumnosGeneral);
+    
     const [busquedaAlumno, setBusquedaAlumno] = useState('');
     const [showNuevoAlumnoModal, setShowNuevoAlumnoModal] = useState(false);
     const [alumnoError, setAlumnoError] = useState('');
@@ -445,21 +394,68 @@ const SecretariaUserDashboard = () => {
     };
 
     const clonarAAnioSiguiente = async () => {
-        if (!anioDestinoClonar || !selectedAnioConceptoId) return;
-        setGuardandoConcepto(true);
-        setErrorConceptos('');
-        try {
-            await clonarConceptosAPI(selectedAnioConceptoId, Number(anioDestinoClonar));
-            setSelectedAnioConceptoId(Number(anioDestinoClonar));
-            setAnioDestinoClonar('');
-            await cargarConceptos();
-        } catch (err) {
-            const msg = err.response?.data;
-            setErrorConceptos(typeof msg === 'string' ? msg : 'No se pudo clonar los conceptos.');
-        } finally {
-            setGuardandoConcepto(false);
-        }
-    };
+    if (!anioDestinoClonar || !selectedAnioConceptoId) {
+        setErrorConceptos('Debes seleccionar un año de destino.');
+        return;
+    }
+
+    const codAnioDestino = Number(anioDestinoClonar);
+
+    if (codAnioDestino === selectedAnioConceptoId) {
+        setErrorConceptos(
+            'El año de destino debe ser diferente al año de origen.'
+        );
+        return;
+    }
+
+    const anioOrigen = aniosAcademicosCatalogo.find(
+        (a) => a.codAnioAcademico === selectedAnioConceptoId
+    )?.anio;
+
+    const anioDestino = aniosAcademicosCatalogo.find(
+        (a) => a.codAnioAcademico === codAnioDestino
+    )?.anio;
+
+    const confirmar = window.confirm(
+        `¿Deseas clonar los conceptos del año ${anioOrigen} al año ${anioDestino}?`
+    );
+
+    if (!confirmar) return;
+
+    setGuardandoConcepto(true);
+    setErrorConceptos('');
+
+    try {
+        const respuesta = await clonarConceptosAPI(
+            selectedAnioConceptoId,
+            codAnioDestino
+        );
+
+        await cargarConceptos();
+
+        setSelectedAnioConceptoId(codAnioDestino);
+        setAnioDestinoClonar('');
+
+        alert(
+            typeof respuesta === 'string'
+                ? respuesta
+                : `Conceptos clonados correctamente al año ${anioDestino}.`
+        );
+    } catch (err) {
+        console.error('Error al clonar conceptos', err);
+
+        const mensaje = err.response?.data;
+
+        setErrorConceptos(
+            typeof mensaje === 'string'
+                ? mensaje
+                : mensaje?.message ||
+                  'No se pudieron clonar los conceptos.'
+        );
+    } finally {
+        setGuardandoConcepto(false);
+    }
+};
 
     useEffect(() => {
         if (!show2FAModal || !secreto2FA) return;
@@ -2378,10 +2374,14 @@ const SecretariaUserDashboard = () => {
                                 </h3>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                     <select
-                                        className="filter-select"
-                                        value={selectedAnioConceptoId ?? ''}
-                                        onChange={(e) => setSelectedAnioConceptoId(Number(e.target.value))}
-                                    >
+    className="filter-select"
+    value={selectedAnioConceptoId ?? ''}
+    onChange={(e) => {
+        setSelectedAnioConceptoId(Number(e.target.value));
+        setAnioDestinoClonar('');
+        setErrorConceptos('');
+    }}
+>
                                         {aniosAcademicosCatalogo.map(a => (
                                             <option key={a.codAnioAcademico} value={a.codAnioAcademico}>{a.anio}</option>
                                         ))}
@@ -2396,9 +2396,18 @@ const SecretariaUserDashboard = () => {
                                             .filter(a => a.codAnioAcademico !== selectedAnioConceptoId)
                                             .map(a => <option key={a.codAnioAcademico} value={a.codAnioAcademico}>{a.anio}</option>)}
                                     </select>
-                                    <button className="btn-primary-outline" type="button" onClick={clonarAAnioSiguiente} disabled={!anioDestinoClonar || guardandoConcepto}>
-                                        ⤓ Clonar
-                                    </button>
+                                    <button
+    className="btn-primary-outline"
+    type="button"
+    onClick={clonarAAnioSiguiente}
+    disabled={
+        !anioDestinoClonar ||
+        !selectedAnioConceptoId ||
+        guardandoConcepto
+    }
+>
+    {guardandoConcepto ? 'Clonando...' : '⤓ Clonar'}
+</button>
                                 </div>
                             </div>
 
