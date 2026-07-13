@@ -17,6 +17,7 @@ import {
     editarConcepto as editarConceptoAPI,
     clonarConceptos as clonarConceptosAPI
 } from '../services/conceptoService';
+import { listarCuotasPago, procesarPago } from '../services/pagoService';
 
 const TOTP_STEP = 30; // segundos que dura cada codigo, igual que Google Authenticator
 
@@ -180,29 +181,6 @@ const mockAlumnosMaestro = [
     { apPaterno: 'Torres', apMaterno: 'Nina', nombre: 'María' }
 ];
 
-
-const mockCuotasPagos = [
-    { id: 1, concepto: 'Matrícula', monto: 200, orden: 1 },
-    { id: 2, concepto: 'Marzo', monto: 100, orden: 2 },
-    { id: 3, concepto: 'Abril', monto: 100, orden: 3 },
-    { id: 4, concepto: 'Mayo', monto: 100, orden: 4 },
-    { id: 5, concepto: 'Junio', monto: 100, orden: 5 }
-];
-
-
-const mockHistorialAlumnos = {
-    'chinga-ramos-carlos': [
-        { anio: 2025, estado: 'pendiente', detalle: 'S/ 100 pendiente', mes: 'Diciembre', monto: 100 },
-        { anio: 2024, estado: 'al_dia', detalle: 'Al día' },
-        { anio: 2023, estado: 'al_dia', detalle: 'Al día' }
-    ]
-};
-const historialPorDefecto = [
-    { anio: 2025, estado: 'al_dia', detalle: 'Al día' },
-    { anio: 2024, estado: 'al_dia', detalle: 'Al día' },
-    { anio: 2023, estado: 'al_dia', detalle: 'Al día' }
-];
-
 const tituloSuperiorPorTab = {
     matricula: 'SECRETARÍA — PANEL PRINCIPAL (TODAS LAS OPERACIONES)',
     pagos: 'SECRETARÍA — PAGOS',
@@ -304,10 +282,10 @@ const SecretariaUserDashboard = () => {
 
     const [anioConsultaPagos, setAnioConsultaPagos] = useState('2026');
     const [nombreAlumnoPagos, setNombreAlumnoPagos] = useState('');
-    const [pagosPorMatriculaPagos, setPagosPorMatriculaPagos] = useState({
-        'chinga-ramos-carlos-2026': [1, 2, 3]
-    });
-    const [correlativoBoleta, setCorrelativoBoleta] = useState(() => Math.floor(100000 + Math.random() * 900000));
+    const [alumnoPagosSeleccionadoObj, setAlumnoPagosSeleccionadoObj] = useState(null); // { id, nombre, ... } real
+    const [cuotasPagosBackend, setCuotasPagosBackend] = useState([]);  // todas las cuotas reales del alumno (todos los años)
+    const [cargandoCuotasPagos, setCargandoCuotasPagos] = useState(false);
+    const [errorCuotasPagos, setErrorCuotasPagos] = useState('');
     const [reciboMensaje, setReciboMensaje] = useState('');
     const [showHistorialPagosModal, setShowHistorialPagosModal] = useState(false);
 
@@ -633,6 +611,25 @@ const SecretariaUserDashboard = () => {
         return () => { activo = false; };
     }, []);
 
+    // Carga TODAS las cuotas reales del alumno seleccionado en Pagos (todos los años, para armar el historial)
+    useEffect(() => {
+        if (!alumnoPagosSeleccionadoObj?.id) {
+            setCuotasPagosBackend([]);
+            return;
+        }
+        let activo = true;
+        setCargandoCuotasPagos(true);
+        setErrorCuotasPagos('');
+        listarCuotasPago(alumnoPagosSeleccionadoObj.id, null)
+            .then((data) => { if (activo) setCuotasPagosBackend(data); })
+            .catch((err) => {
+                console.error('Error al cargar cuotas del alumno', err);
+                if (activo) setErrorCuotasPagos('No se pudieron cargar las cuotas. Verifica tu permiso "ver" en Pagos.');
+            })
+            .finally(() => { if (activo) setCargandoCuotasPagos(false); });
+        return () => { activo = false; };
+    }, [alumnoPagosSeleccionadoObj]);
+
     const aulasFiltradas = aulas.filter(a => (nivelFiltro === 'Todos' || a.nivel === nivelFiltro) && a.anio === anioAcademico);
     const selectedAula = aulas.find(a => a.id === selectedAulaId) || null;
     const alumnosDeAula = selectedAula ? (alumnosPorAula[selectedAula.id] || []) : [];
@@ -915,7 +912,9 @@ const SecretariaUserDashboard = () => {
 
         if (activeTab === 'pagos') {
             setNombreAlumnoPagos(alumno.nombre);
+            setAlumnoPagosSeleccionadoObj(alumno.id ? alumno : null);
             setReciboMensaje('');
+            setErrorCuotasPagos('');
         }
 
         setShowAlumnoModal(false);
@@ -1046,24 +1045,32 @@ const SecretariaUserDashboard = () => {
         }
     };
 
-
-    const alumnoKeyBase = nombreAlumnoPagos.trim().toLowerCase().replace(/,/g, '').replace(/\s+/g, '-');
-    const matriculaKeyPagos = `${alumnoKeyBase}-${anioConsultaPagos}`;
-    const pagadosIdsPagos = pagosPorMatriculaPagos[matriculaKeyPagos] || [];
-
-
     const todosLosAlumnosPagos = aulas
         .filter(a => a.anio === anioConsultaPagos)
         .flatMap(a => (alumnosPorAula[a.id] || []).map(al => ({
             ...al,
+            id: al.codAlumno,
             aulaLabel: `${a.nivel} ${a.grado} "${a.seccion}"`
         })));
 
+    // Cuotas reales del año que se está consultando, con su estado real (PENDIENTE/PAGADO) del backend
+    const cuotasAnioActual = cuotasPagosBackend
+        .filter(c => c.matricula?.anioAcademico?.anio === anioConsultaPagos)
+        .map(c => ({
+            id: c.codCuota,
+            concepto: c.concepto?.nombreConcepto || '',
+            monto: Number(c.montoCobrado),
+            orden: c.concepto?.ordenPago || 0,
+            estadoBackend: c.estado,       // 'PENDIENTE' | 'PAGADO'
+            recibo: c.recibo,
+            fechaPago: c.fechaPago
+        }))
+        .sort((a, b) => a.orden - b.orden);
+
     let bloqueoPagosEncontrado = false;
-    const cuotasPagosConEstado = mockCuotasPagos.map((cuota) => {
-        const pagado = pagadosIdsPagos.includes(cuota.id);
+    const cuotasPagosConEstado = cuotasAnioActual.map((cuota) => {
         let estado;
-        if (pagado) {
+        if (cuota.estadoBackend === 'PAGADO') {
             estado = 'pagado';
         } else if (bloqueoPagosEncontrado) {
             estado = 'bloqueado';
@@ -1074,38 +1081,66 @@ const SecretariaUserDashboard = () => {
         return { ...cuota, estadoPago: estado };
     });
 
-    const historialAlumno = mockHistorialAlumnos[alumnoKeyBase] || historialPorDefecto;
-    const deudaAnterior = historialAlumno.find(h => h.estado === 'pendiente');
-    const historialPagosDetalle = [
-        { id: 1, concepto: 'Matrícula 2025', monto: 200, fecha: '05/03/25', estado: 'pagado', recibo: 'BOL-2025-001' },
-        { id: 2, concepto: 'Marzo 2025', monto: 100, fecha: '01/04/25', estado: 'pagado', recibo: 'BOL-2025-018' },
-        { id: 3, concepto: 'Abril 2025', monto: 100, fecha: '02/05/25', estado: 'pagado', recibo: 'BOL-2025-031' },
-        { id: 4, concepto: 'Diciembre 2025', monto: 100, fecha: '—', estado: 'pendiente', recibo: null }
-    ];
+    // Historial de años anteriores (real), agrupado a partir de las cuotas del alumno
+    const historialPorAnioMap = {};
+    cuotasPagosBackend.forEach((c) => {
+        const anio = c.matricula?.anioAcademico?.anio;
+        if (!anio || anio === anioConsultaPagos) return;
+        if (!historialPorAnioMap[anio]) historialPorAnioMap[anio] = [];
+        historialPorAnioMap[anio].push(c);
+    });
+    const historialAlumno = Object.keys(historialPorAnioMap)
+        .sort((a, b) => b.localeCompare(a))
+        .map((anio) => {
+            const pendientes = historialPorAnioMap[anio].filter(c => c.estado === 'PENDIENTE');
+            if (pendientes.length === 0) {
+                return { anio, estado: 'al_dia', detalle: 'Al día' };
+            }
+            const totalDeuda = pendientes.reduce((sum, c) => sum + Number(c.montoCobrado), 0);
+            return { anio, estado: 'pendiente', detalle: `S/ ${totalDeuda} pendiente`, monto: totalDeuda };
+        });
 
-    const totalPagado2025 = historialPagosDetalle
+    const deudaAnterior = historialAlumno.find(h => h.estado === 'pendiente');
+
+    // Detalle de pagos ya realizados en el año consultado, para el modal "Historial de pagos"
+    const historialPagosDetalle = cuotasAnioActual.map((c) => ({
+        id: c.id,
+        concepto: c.concepto,
+        monto: c.monto,
+        fecha: c.fechaPago ? new Date(c.fechaPago).toLocaleDateString('es-PE') : '—',
+        estado: c.estadoBackend === 'PAGADO' ? 'pagado' : 'pendiente',
+        recibo: c.recibo
+    }));
+
+    const totalPagadoAnioActual = historialPagosDetalle
         .filter(p => p.estado === 'pagado')
         .reduce((total, p) => total + p.monto, 0);
 
-    const deudaPendiente2025 = historialPagosDetalle
+    const deudaPendienteAnioActual = historialPagosDetalle
         .filter(p => p.estado === 'pendiente')
         .reduce((total, p) => total + p.monto, 0);
 
 
-    const pagarCuotaPagos = (cuotaId) => {
-        const nuevoCorrelativo = Math.floor(100000 + Math.random() * 900000);
-        setPagosPorMatriculaPagos(prev => ({
-            ...prev,
-            [matriculaKeyPagos]: [...(prev[matriculaKeyPagos] || []), cuotaId]
-        }));
-        setCorrelativoBoleta(nuevoCorrelativo);
-        setReciboMensaje(`✓ Recibo BOL-${nuevoCorrelativo} generado. Se registró en Recibo y en Auditoría.`);
-        setTimeout(() => setReciboMensaje(''), 3000);
+    const pagarCuotaPagos = async (codCuota) => {
+        setReciboMensaje('');
+        setErrorCuotasPagos('');
+        try {
+            const cuotaPagada = await procesarPago(codCuota);
+            setReciboMensaje(`✓ Recibo ${cuotaPagada.recibo} generado. Se registró en Auditoría.`);
+            // Refresca las cuotas reales del alumno tras el pago
+            const data = await listarCuotasPago(alumnoPagosSeleccionadoObj.id, null);
+            setCuotasPagosBackend(data);
+            setTimeout(() => setReciboMensaje(''), 4000);
+        } catch (err) {
+            const msg = err.response?.data;
+            setErrorCuotasPagos(typeof msg === 'string' ? msg : 'No se pudo procesar el pago.');
+        }
     };
 
     const verRecibo = (cuota) => {
-        setReciboMensaje(`ℹ Recibo de "${cuota.concepto}" ya emitido (correlativo asignado al momento del pago).`);
-        setTimeout(() => setReciboMensaje(''), 3000);
+        const fecha = cuota.fechaPago ? new Date(cuota.fechaPago).toLocaleDateString('es-PE') : '';
+        setReciboMensaje(`ℹ Recibo de "${cuota.concepto}": ${cuota.recibo || 'sin recibo'}${fecha ? ` (pagado el ${fecha})` : ''}.`);
+        setTimeout(() => setReciboMensaje(''), 4000);
     };
 
     const handleLogout = () => {
@@ -1603,16 +1638,19 @@ const SecretariaUserDashboard = () => {
                                             <button
                                                 className="modal-trigger-btn"
                                                 type="button"
-                                                onClick={() => {
-                                                    if (!nombreAlumnoPagos.trim()) {
-                                                        setShowAlumnoModal(true);
-                                                    } else {
-                                                        setShowHistorialPagosModal(true);
-                                                    }
-                                                }}
+                                                onClick={() => setShowAlumnoModal(true)}
                                             >
-                                                <IconSearch /> Modal
+                                                <IconSearch /> {nombreAlumnoPagos ? 'Cambiar alumno' : 'Modal'}
                                             </button>
+                                            {nombreAlumnoPagos && (
+                                                <button
+                                                    className="modal-trigger-btn"
+                                                    type="button"
+                                                    onClick={() => setShowHistorialPagosModal(true)}
+                                                >
+                                                    Ver historial
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -1721,11 +1759,11 @@ const SecretariaUserDashboard = () => {
                                                 </table>
 
                                                 <div className="perm-box">
-                                                    <p className="table-footer-note">Total pagado 2025</p>
-                                                    <h2>S/ {totalPagado2025}</h2>
+                                                    <p className="table-footer-note">Total pagado {anioConsultaPagos}</p>
+                                                    <h2>S/ {totalPagadoAnioActual}</h2>
 
                                                     <p className="table-footer-note">Deuda pendiente</p>
-                                                    <h2 style={{ color: '#991b1b' }}>S/ {deudaPendiente2025}</h2>
+                                                    <h2 style={{ color: '#991b1b' }}>S/ {deudaPendienteAnioActual}</h2>
 
                                                     <hr />
 
@@ -1748,8 +1786,15 @@ const SecretariaUserDashboard = () => {
 
                                 {deudaAnterior && (
                                     <div className="warning-banner">
-                                        <IconWarning /> Deuda pendiente en año {deudaAnterior.anio} — S/ {deudaAnterior.monto} (cuota {deudaAnterior.mes}). No se podrá matricular en {anioConsultaPagos} hasta regularizar.
+                                        <IconWarning /> Deuda pendiente en año {deudaAnterior.anio} — S/ {deudaAnterior.monto}. No se podrá matricular en {anioConsultaPagos} hasta regularizar.
                                     </div>
+                                )}
+
+                                {cargandoCuotasPagos && (
+                                    <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>Cargando cuotas del alumno…</p>
+                                )}
+                                {errorCuotasPagos && (
+                                    <div className="warning-banner"><IconWarning /> {errorCuotasPagos}</div>
                                 )}
 
                                 {!nombreAlumnoPagos ? (
@@ -1853,11 +1898,18 @@ const SecretariaUserDashboard = () => {
                                         </div>
 
                                         <div className="perm-box">
-                                            <h3 className="section-title">Recibo generado al pagar</h3>
-                                            <p className="boleta-box-label">Correlativo de boleta</p>
-                                            <div className="boleta-input-display">
-                                                BOL-{correlativoBoleta}
-                                            </div>
+                                            <h3 className="section-title">Último recibo</h3>
+                                            {(() => {
+                                                const ultimoPagado = [...cuotasAnioActual].reverse().find(c => c.estadoBackend === 'PAGADO');
+                                                return ultimoPagado ? (
+                                                    <>
+                                                        <p className="boleta-box-label">Correlativo de boleta</p>
+                                                        <div className="boleta-input-display">{ultimoPagado.recibo}</div>
+                                                    </>
+                                                ) : (
+                                                    <p className="table-footer-note">Aún no hay pagos registrados este año.</p>
+                                                );
+                                            })()}
                                             <p className="boleta-hint-text">
                                                 Al confirmar pago se registra en tabla recibo y en Auditoría (usuario + fecha + cuota pagada).
                                             </p>
