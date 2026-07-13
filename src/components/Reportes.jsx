@@ -1,5 +1,6 @@
-import { useState } from 'react';
-
+import { useState, useEffect } from 'react';
+import { listarAulas } from '../services/aulaService';
+import { listarMatriculas } from '../services/matriculaService';
 // ============================================================================
 // Reportes.jsx
 // ----------------------------------------------------------------------------
@@ -17,12 +18,7 @@ const REPORTES_MENU = [
     { key: 'caja', label: 'Reporte de Caja' }
 ];
 
-const MOCK_VACANTES = [
-    { aula: 1, nivel: 'Inicial', grado: '3 años', seccion: 'A', ocupados: 20, cupo: 25 },
-    { aula: 2, nivel: 'Inicial', grado: '3 años', seccion: 'B', ocupados: 18, cupo: 25 },
-    { aula: 3, nivel: 'Primaria', grado: '1°', seccion: 'A', ocupados: 30, cupo: 35 },
-    { aula: 4, nivel: 'Secundaria', grado: '1°', seccion: 'A', ocupados: 35, cupo: 35 }
-];
+
 
 const MOCK_MATRICULA = [
     { aula: 'A', nivel: 'Inicial', grado: '3 años', matriculados: 20, cupoMax: 25 },
@@ -68,11 +64,59 @@ const descargarCSV = (nombreArchivo, encabezado, filas) => {
 };
 
 const Reportes = () => {
+    
     const [reporteActivo, setReporteActivo] = useState('vacantes');
     const [anioReporte, setAnioReporte] = useState('2026');
     const [nivelFiltro, setNivelFiltro] = useState('todos');
     const [estadoDeudaFiltro, setEstadoDeudaFiltro] = useState('todos');
     const [mesCajaFiltro, setMesCajaFiltro] = useState('todos');
+
+    // ===== Datos reales para el reporte de Vacantes (aulas + matrículas) =====
+    const [aulasBackend, setAulasBackend] = useState([]);
+    const [matriculasBackend, setMatriculasBackend] = useState([]);
+    const [cargandoVacantes, setCargandoVacantes] = useState(true);
+    const [errorVacantes, setErrorVacantes] = useState('');
+
+    useEffect(() => {
+        let activo = true;
+        const cargarDatosVacantes = async () => {
+            setCargandoVacantes(true);
+            setErrorVacantes('');
+            try {
+                const [aulas, matriculas] = await Promise.all([listarAulas(), listarMatriculas()]);
+                if (!activo) return;
+                setAulasBackend(aulas);
+                setMatriculasBackend(matriculas);
+            } catch (err) {
+                console.error('Error cargando datos de vacantes', err);
+                if (activo) setErrorVacantes('No se pudieron cargar los datos de vacantes desde el servidor.');
+            } finally {
+                if (activo) setCargandoVacantes(false);
+            }
+        };
+        cargarDatosVacantes();
+        return () => { activo = false; };
+    }, []);
+
+    // Cuántos alumnos con matrícula activa tiene cada aula
+    const ocupadasPorAula = {};
+    matriculasBackend.forEach((m) => {
+        if ((m.estado || '').toLowerCase() === 'activa' && m.aula?.codAula) {
+            ocupadasPorAula[m.aula.codAula] = (ocupadasPorAula[m.aula.codAula] || 0) + 1;
+        }
+    });
+
+    // Aulas activas del año seleccionado, con su ocupación real
+    const vacantesDelAnio = aulasBackend
+        .filter((a) => a.estado && String(a.anioAcademico?.anio) === anioReporte)
+        .map((a) => ({
+            aula: a.codAula,
+            nivel: a.nivel?.nombre || '',
+            grado: a.grado?.nombre || '',
+            seccion: a.seccion,
+            ocupados: ocupadasPorAula[a.codAula] || 0,
+            cupo: a.capacidadMaxima
+        }));
 
     const matriculaFiltrada = nivelFiltro === 'todos' ? MOCK_MATRICULA : MOCK_MATRICULA.filter(m => m.nivel === nivelFiltro);
     const deudasFiltradas = estadoDeudaFiltro === 'todos' ? MOCK_DEUDAS : MOCK_DEUDAS.filter(d => d.estado === estadoDeudaFiltro);
@@ -82,7 +126,7 @@ const Reportes = () => {
     const cajaPromedioPorPago = cajaTotalPagos > 0 ? Math.round(cajaTotalIngresos / cajaTotalPagos) : 0;
 
     const exportarVacantesCSV = () => {
-        const filas = MOCK_VACANTES.map(v => {
+        const filas = vacantesDelAnio.map(v => {
             const vacantes = v.cupo - v.ocupados;
             const estado = getEstadoVacante(v.ocupados, v.cupo);
             return [v.aula, v.nivel, v.grado, v.seccion, v.ocupados, v.cupo, vacantes, estado.label];
@@ -159,35 +203,47 @@ const Reportes = () => {
                                     <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" strokeWidth="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
                                     Vacantes disponibles — {anioReporte}
                                 </p>
-                                <table className="users-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Aula</th><th>Nivel</th><th>Grado</th><th>Sección</th>
-                                            <th>Ocupados</th><th>Cupo</th><th>Vacantes</th><th>Estado</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {MOCK_VACANTES.map(v => {
-                                            const vacantes = v.cupo - v.ocupados;
-                                            const estado = getEstadoVacante(v.ocupados, v.cupo);
-                                            return (
-                                                <tr key={v.aula}>
-                                                    <td>{v.aula}</td>
-                                                    <td>{v.nivel}</td>
-                                                    <td>{v.grado}</td>
-                                                    <td>{v.seccion}</td>
-                                                    <td>{v.ocupados}</td>
-                                                    <td>{v.cupo}</td>
-                                                    <td style={{ fontWeight: 800, color: estado.color }}>{vacantes}</td>
-                                                    <td><span className={`estado-badge ${estado.className}`}>{estado.label}</span></td>
+
+                                {cargandoVacantes ? (
+                                    <p style={{ fontStyle: 'italic', color: '#6b7280' }}>Cargando vacantes...</p>
+                                ) : errorVacantes ? (
+                                    <p style={{ color: '#dc2626' }}>{errorVacantes}</p>
+                                ) : (
+                                    <>
+                                        <table className="users-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Aula</th><th>Nivel</th><th>Grado</th><th>Sección</th>
+                                                    <th>Ocupados</th><th>Cupo</th><th>Vacantes</th><th>Estado</th>
                                                 </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                                <p className="table-footer-note">
-                                    ⓘ Total vacantes: <strong>{MOCK_VACANTES.reduce((acc, v) => acc + (v.cupo - v.ocupados), 0)}</strong>. Se recomienda abrir nuevas secciones si la demanda supera el 90% de ocupación.
-                                </p>
+                                            </thead>
+                                            <tbody>
+                                                {vacantesDelAnio.map(v => {
+                                                    const vacantes = v.cupo - v.ocupados;
+                                                    const estado = getEstadoVacante(v.ocupados, v.cupo);
+                                                    return (
+                                                        <tr key={v.aula}>
+                                                            <td>{v.aula}</td>
+                                                            <td>{v.nivel}</td>
+                                                            <td>{v.grado}</td>
+                                                            <td>{v.seccion}</td>
+                                                            <td>{v.ocupados}</td>
+                                                            <td>{v.cupo}</td>
+                                                            <td style={{ fontWeight: 800, color: estado.color }}>{vacantes}</td>
+                                                            <td><span className={`estado-badge ${estado.className}`}>{estado.label}</span></td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                                {vacantesDelAnio.length === 0 && (
+                                                    <tr><td colSpan="8" className="table-footer-note">No hay aulas registradas para el año {anioReporte}.</td></tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                        <p className="table-footer-note">
+                                            ⓘ Total vacantes: <strong>{vacantesDelAnio.reduce((acc, v) => acc + (v.cupo - v.ocupados), 0)}</strong>. Se recomienda abrir nuevas secciones si la demanda supera el 90% de ocupación.
+                                        </p>
+                                    </>
+                                )}
                             </div>
                         </>
                     ) : reporteActivo === 'matricula' ? (
