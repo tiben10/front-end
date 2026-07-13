@@ -10,6 +10,7 @@ import { decodeJwt } from '../services/jwt';
 import { listarMatriculas } from '../services/matriculaService';
 import { listarAlumnos } from '../services/alumnoService';
 import { listarCuotasPago } from '../services/pagoService';
+import { listarAulas } from '../services/aulaService';
 
 const IconRegistros = () => (
     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><path d="M9 12h6"></path><path d="M9 16h6"></path></svg>
@@ -27,19 +28,8 @@ const IconClave = () => (
     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
 );
 
-const matriculasRecientes = [
-    { id: '001', alumno: 'Chinga Ramos, Carlos', aula: 'Sec. 1° A', fecha: '10/03/2026', estado: 'activa', registradoPor: 'secretaria01' },
-    { id: '002', alumno: 'López Díaz, Lucía', aula: 'Prim. 3° B', fecha: '11/03/2026', estado: 'activa', registradoPor: 'secretaria01' },
-    { id: '003', alumno: 'Quispe Meza, Pedro', aula: 'Inic. 3A', fecha: '12/03/2026', estado: 'pendiente', registradoPor: 'secretaria01' }
-];
 
-const estadoMatriculaClass = (estado) => {
-    switch (estado) {
-        case 'activa': return 'matric-activa';
-        case 'pendiente': return 'matric-pendiente';
-        default: return 'matric-trasladada';
-    }
-};
+
 
 const matriculaBadgeClass = (estado) => {
     switch ((estado || '').toLowerCase()) {
@@ -74,6 +64,7 @@ useEffect(() => {
 // Datos reales para las vistas de Matrícula / Pagos / Alumnos (solo lectura)
 const [matriculas, setMatriculas] = useState([]);
 const [alumnosBackend, setAlumnosBackend] = useState([]);
+const [aulasBackend, setAulasBackend] = useState([]);
 const [cargandoDatos, setCargandoDatos] = useState(true);
 const [errorDatos, setErrorDatos] = useState('');
 const [busquedaAlumno, setBusquedaAlumno] = useState('');
@@ -126,13 +117,15 @@ useEffect(() => {
         setCargandoDatos(true);
         setErrorDatos('');
         try {
-            const [matriculasBackend, alumnosData] = await Promise.all([
+            const [matriculasBackend, alumnosData, aulasData] = await Promise.all([
                 listarMatriculas(),
-                listarAlumnos()
+                listarAlumnos(),
+                listarAulas()
             ]);
             if (!activo) return;
             setMatriculas(matriculasBackend);
             setAlumnosBackend(alumnosData);
+            setAulasBackend(aulasData);
         } catch (err) {
             console.error('Error cargando datos del director:', err);
             if (activo) setErrorDatos('No se pudieron cargar los datos desde el servidor.');
@@ -199,6 +192,16 @@ const alumnosFiltrados = alumnosMapeados.filter((a) => {
 const matriculasOrdenadas = matriculas
     .slice()
     .sort((a, b) => (b.codMatricula || 0) - (a.codMatricula || 0));
+    // ===== Datos reales para el resumen de "Registros" =====
+const ANIO_VIGENTE = '2026'; // año académico que se muestra en el resumen
+
+const matriculasDelAnioActivas = matriculas.filter(
+    (m) => String(m.anioAcademico?.anio) === ANIO_VIGENTE && (m.estado || '').toLowerCase() === 'activa'
+);
+
+const aulasActivas = aulasBackend.filter((a) => a.estado);
+
+const matriculasParaResumen = matriculasOrdenadas.slice(0, 5);
 
 const cambiarClave = async () => {
     setClaveError('');
@@ -314,23 +317,28 @@ const cambiarClave = async () => {
                             <>
                                 <div className="director-summary-grid">
                                     <div className="director-summary-card">
-                                        <p>Matrículas 2026</p>
-                                        <h1>142</h1>
-                                    </div>
+                                        <p>Matrículas {ANIO_VIGENTE}</p>
+                <h1>{cargandoDatos ? '—' : matriculasDelAnioActivas.length}</h1>
+            </div>
 
                                     <div className="director-summary-card">
                                         <p>Aulas registradas</p>
-                                        <h1>8</h1>
+                <h1>{cargandoDatos ? '—' : aulasActivas.length}</h1>
                                     </div>
 
                                     <div className="director-summary-card">
                                         <p>Pagos pendientes</p>
-                                        <h1 className="director-danger-number">23</h1>
+                {/* TODO: pendiente de un endpoint del backend que devuelva este conteo */}
+                <h1 className="director-danger-number">—</h1>
                                     </div>
                                 </div>
 
-                                <h3 className="section-title">Matrículas recientes — 2026</h3>
-
+                                <h3 className="section-title">Matrículas recientes — {ANIO_VIGENTE}</h3>
+                                {cargandoDatos ? (
+            <p>Cargando matrículas...</p>
+        ) : errorDatos ? (
+            <p style={{ color: '#dc2626' }}>{errorDatos}</p>
+        ) : (
                                 <table className="users-table">
                                     <thead>
                                         <tr>
@@ -344,23 +352,26 @@ const cambiarClave = async () => {
                                     </thead>
 
                                     <tbody>
-                                        {matriculasRecientes.map((matricula) => (
-                                            <tr key={matricula.id}>
-                                                <td>{matricula.id}</td>
-                                                <td>{matricula.alumno}</td>
-                                                <td>{matricula.aula}</td>
-                                                <td>{matricula.fecha}</td>
-                                                <td>
-                                                    <span className={`matric-badge ${estadoMatriculaClass(matricula.estado)}`}>
-                                                        {matricula.estado}
+                                        {matriculasParaResumen.map((m) => (
+                        <tr key={m.codMatricula}>
+                            <td>{m.codMatricula}</td>
+                            <td>{m.alumno?.apellidoPaterno} {m.alumno?.apellidoMaterno}, {m.alumno?.nombres}</td>
+                            <td>{m.aula?.nivel?.nombre} {m.aula?.grado?.nombre} "{m.aula?.seccion}"</td>
+                            <td>{m.fechaMatricula}</td>
+                            <td>
+                                                    <span className={`matric-badge ${matriculaBadgeClass(m.estado)}`}>
+                                                        {m.estado}
                                                     </span>
                                                 </td>
-                                                <td>{matricula.registradoPor}</td>
+                                                <td>{m.usuarioRegistro?.usuario || '—'}</td>
                                             </tr>
                                         ))}
+                                        {matriculasParaResumen.length === 0 && (
+                        <tr><td colSpan="6" className="table-footer-note">No hay matrículas registradas.</td></tr>
+                    )}
                                     </tbody>
                                 </table>
-
+        )}
                                 <div className="table-footer-note">
                                     👁 Vista de lectura — no se permiten modificaciones
                                 </div>

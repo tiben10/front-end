@@ -45,10 +45,27 @@ const ProfileCard = ({ profile }) => {
              else if (rol === 'SECRETARIA') navigate('/secretaria-dashboard');
              else navigate('/dashboard'); // SUPERUSUARIO
          } catch (error) {
-            const msg = (error.response?.status === 401 || error.response?.status === 403)
-                ? 'Usuario o contraseña incorrectos.'
-                : 'No se pudo conectar con el servidor.';
-            Swal.fire('Error', msg, 'error');
+            const status = error.response?.status;
+            const mensajeBackend = typeof error.response?.data === 'string'
+                ? error.response.data
+                : error.response?.data?.mensaje;
+
+            if (status === 423) {
+                // Usuario bloqueado temporalmente por intentos fallidos (lo maneja el backend)
+                Swal.fire(
+                    'Cuenta bloqueada',
+                    mensajeBackend || 'Tu cuenta está bloqueada temporalmente por múltiples intentos fallidos. Intente nuevamente en 15 minuto(s)',
+                    'error'
+                );
+            } else if (status === 401 || status === 403) {
+                Swal.fire(
+                    'Usuario o contraseña incorrectos',
+                    mensajeBackend || 'Usuario o contraseña incorrectos.',
+                    'warning'
+                );
+            } else {
+                Swal.fire('Error', 'No se pudo conectar con el servidor.', 'error');
+            }
         } finally {
             setLoading(false);
         }
