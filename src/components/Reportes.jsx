@@ -3,6 +3,7 @@ import { listarAulas } from '../services/aulaService';
 import { listarMatriculas } from '../services/matriculaService';
 import { anioAcademicoService } from '../services/catalogoService';
 import { listarDeudas } from '../services/deudaService';
+import { reportePagos } from '../services/reporteService';
 
 const REPORTES_MENU = [
     { key: 'matricula', label: 'Reporte de Matrícula' },
@@ -11,15 +12,22 @@ const REPORTES_MENU = [
     { key: 'caja', label: 'Reporte de Caja' }
 ];
 
-
-const MOCK_CAJA_INGRESOS = [
-    { mes: 'Enero', concepto: 'Matrículas', cantPagos: 15, total: 3000 },
-    { mes: 'Febrero', concepto: 'Matrículas', cantPagos: 22, total: 4400 },
-    { mes: 'Marzo', concepto: 'Cuotas mensuales', cantPagos: 18, total: 1800 },
-    { mes: 'Abril', concepto: 'Cuotas mensuales', cantPagos: 12, total: 1200 },
-    { mes: 'Mayo', concepto: 'Cuotas mensuales', cantPagos: 10, total: 1000 },
-    { mes: 'Junio', concepto: 'Cuotas mensuales', cantPagos: 8, total: 800 }
+const MESES = [
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Septiembre',
+    'Octubre',
+    'Noviembre',
+    'Diciembre'
 ];
+
+
 
 const formatSoles = (n) =>
     `S/ ${Number(n || 0).toLocaleString('es-PE')}`;
@@ -76,6 +84,8 @@ const Reportes = () => {
     const [nivelFiltro, setNivelFiltro] = useState('todos');
     const [estadoDeudaFiltro, setEstadoDeudaFiltro] = useState('todos');
     const [mesCajaFiltro, setMesCajaFiltro] = useState('todos');
+
+    
     // ===== Catálogo de años académicos (para llenar los selects con años reales) =====
     const [aniosCatalogo, setAniosCatalogo] = useState([]);
     useEffect(() => {
@@ -202,9 +212,89 @@ const deudasFiltradas = deudasBackend.map((d) => ({
     estado: d.estado
 }));
 
-   
+   // ===== Datos reales para el reporte de Caja =====
+const [cajaBackend, setCajaBackend] = useState([]);
+const [cargandoCaja, setCargandoCaja] = useState(false);
+const [errorCaja, setErrorCaja] = useState('');
 
-    const cajaFiltrada = mesCajaFiltro === 'todos' ? MOCK_CAJA_INGRESOS : MOCK_CAJA_INGRESOS.filter(c => c.mes === mesCajaFiltro);
+useEffect(() => {
+    if (reporteActivo !== 'caja') return;
+
+    let activo = true;
+
+    const cargarCaja = async () => {
+        setCargandoCaja(true);
+        setErrorCaja('');
+
+        try {
+            const data = await reportePagos({
+                desde: `${anioReporte}-01-01`,
+                hasta: `${anioReporte}-12-31`
+            });
+
+            if (activo) {
+                setCajaBackend(data);
+            }
+        } catch (err) {
+            console.error('Error cargando pagos', err);
+
+            if (activo) {
+                setErrorCaja(
+                    'No se pudieron cargar los pagos desde el servidor.'
+                );
+            }
+        } finally {
+            if (activo) {
+                setCargandoCaja(false);
+            }
+        }
+    };
+
+    cargarCaja();
+
+    return () => {
+        activo = false;
+    };
+}, [reporteActivo, anioReporte]);
+
+const cajaAgrupada = (() => {
+    const grupos = {};
+
+    cajaBackend.forEach((pago) => {
+        if (!pago.fechaPago) return;
+
+        const fecha = new Date(pago.fechaPago);
+        const mes = MESES[fecha.getMonth()];
+
+        const concepto =
+            pago.concepto?.tipoConcepto?.nombre ||
+            pago.concepto?.nombreConcepto ||
+            'Otro';
+
+        const clave = `${mes}-${concepto}`;
+
+        if (!grupos[clave]) {
+            grupos[clave] = {
+                mes,
+                concepto,
+                cantPagos: 0,
+                total: 0
+            };
+        }
+
+        grupos[clave].cantPagos += 1;
+        grupos[clave].total += Number(pago.montoCobrado || 0);
+    });
+
+    return Object.values(grupos).sort(
+        (a, b) => MESES.indexOf(a.mes) - MESES.indexOf(b.mes)
+    );
+})();
+
+    const cajaFiltrada =
+    mesCajaFiltro === 'todos'
+        ? cajaAgrupada
+        : cajaAgrupada.filter((c) => c.mes === mesCajaFiltro);
     const cajaTotalIngresos = cajaFiltrada.reduce((acc, c) => acc + c.total, 0);
     const cajaTotalPagos = cajaFiltrada.reduce((acc, c) => acc + c.cantPagos, 0);
     const cajaPromedioPorPago = cajaTotalPagos > 0 ? Math.round(cajaTotalIngresos / cajaTotalPagos) : 0;
@@ -258,7 +348,15 @@ const deudasFiltradas = deudasBackend.map((d) => ({
     return (
         <>
             <h3 className="section-title" style={{ marginBottom: '1rem' }}>Reportes</h3>
-            <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+            <div
+    style={{
+        display: 'flex',
+        gap: '1.5rem',
+        alignItems: 'flex-start',
+        width: '100%',
+        maxWidth: '1400px'
+    }}
+>
                 <nav className="reportes-menu">
                     {REPORTES_MENU.map(r => (
                         <button
@@ -284,7 +382,13 @@ const deudasFiltradas = deudasBackend.map((d) => ({
                     ))}
                 </nav>
 
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+    style={{
+        flex: 1,
+        minWidth: 0,
+        width: '100%'
+    }}
+>
                     {reporteActivo === 'vacantes' ? (
                         <>
                             <div className="perm-box" style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
@@ -552,14 +656,34 @@ const deudasFiltradas = deudasBackend.map((d) => ({
                         </>
                     ) : (
                         <>
+                            
                             <div className="perm-box" style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+                                <div className="filter-group">
+    <label>Año académico</label>
+    <select
+        className="filter-select"
+        value={anioReporte}
+        onChange={(e) => setAnioReporte(e.target.value)}
+    >
+        {aniosCatalogo.map((a) => (
+            <option
+                key={a.codAnioAcademico}
+                value={a.anio}
+            >
+                {a.anio}
+            </option>
+        ))}
+    </select>
+</div>
                                 <div className="filter-group">
                                     <label>Mes</label>
                                     <select className="filter-select" value={mesCajaFiltro} onChange={(e) => setMesCajaFiltro(e.target.value)}>
                                         <option value="todos">Todos</option>
-                                        {MOCK_CAJA_INGRESOS.map(c => (
-                                            <option key={c.mes} value={c.mes}>{c.mes}</option>
-                                        ))}
+                                        {MESES.map((mes) => (
+    <option key={mes} value={mes}>
+        {mes}
+    </option>
+))}
                                     </select>
                                 </div>
                                 <button type="button" className="pagar-btn-solid" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={exportarCajaCSV}>
@@ -568,41 +692,73 @@ const deudasFiltradas = deudasBackend.map((d) => ({
                                 </button>
                             </div>
 
-                            <div className="director-summary-grid" style={{ marginBottom: '1.25rem' }}>
-                                <div className="director-summary-card">
-                                    <p>Total ingresos</p>
-                                    <h1>{formatSoles(cajaTotalIngresos)}</h1>
-                                </div>
-                                <div className="director-summary-card">
-                                    <p>Cantidad de pagos</p>
-                                    <h1>{cajaTotalPagos}</h1>
-                                </div>
-                                <div className="director-summary-card">
-                                    <p>Promedio por pago</p>
-                                    <h1>{formatSoles(cajaPromedioPorPago)}</h1>
-                                </div>
-                            </div>
+                            {cargandoCaja ? (
+    <p style={{ fontStyle: 'italic', color: '#6b7280' }}>
+        Cargando pagos...
+    </p>
+) : errorCaja ? (
+    <p style={{ color: '#dc2626' }}>
+        {errorCaja}
+    </p>
+) : (
+    <>
+        <div
+            className="director-summary-grid"
+            style={{ marginBottom: '1.75rem' }}
+        >
+            <div className="director-summary-card">
+                <p>Total ingresos</p>
+                <h1>{formatSoles(cajaTotalIngresos)}</h1>
+            </div>
 
-                            <div className="perm-box">
-                                <p className="perm-subtitle">Ingresos por mes</p>
-                                <table className="users-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Mes</th><th>Concepto</th><th>Cant. pagos</th><th>Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {cajaFiltrada.map((c, idx) => (
-                                            <tr key={idx}>
-                                                <td>{c.mes}</td>
-                                                <td>{c.concepto}</td>
-                                                <td>{c.cantPagos}</td>
-                                                <td>{formatSoles(c.total)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+            <div className="director-summary-card">
+                <p>Cantidad de pagos</p>
+                <h1>{cajaTotalPagos}</h1>
+            </div>
+
+            <div className="director-summary-card">
+                <p>Promedio por pago</p>
+                <h1>{formatSoles(cajaPromedioPorPago)}</h1>
+            </div>
+        </div>
+
+        <div className="perm-box">
+            <p className="perm-subtitle">Ingresos por mes</p>
+
+            <table className="users-table">
+                <thead>
+                    <tr>
+                        <th>Mes</th>
+                        <th>Concepto</th>
+                        <th>Cant. pagos</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {cajaFiltrada.map((c, idx) => (
+                        <tr key={idx}>
+                            <td>{c.mes}</td>
+                            <td>{c.concepto}</td>
+                            <td>{c.cantPagos}</td>
+                            <td>{formatSoles(c.total)}</td>
+                        </tr>
+                    ))}
+
+                    {cajaFiltrada.length === 0 && (
+                        <tr>
+                            <td colSpan="4" className="table-footer-note">
+                                No hay pagos registrados para el año {anioReporte}.
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
+    </>
+)}
+
+                            
                         </>
                     )}
                 </div>

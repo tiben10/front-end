@@ -1422,3 +1422,22 @@
     opacity: 0.45;
     cursor: not-allowed;
 }
+.reportes-menu {
+    flex-shrink: 0;
+    width: 220px;
+}
+
+.perm-box {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.users-table,
+.pagos-table {
+    width: 100%;
+}
+
+.director-summary-grid {
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+}
