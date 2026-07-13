@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { listarAulas } from '../services/aulaService';
 import { listarMatriculas } from '../services/matriculaService';
 import { anioAcademicoService } from '../services/catalogoService';
+import { listarDeudas } from '../services/deudaService';
 
 const REPORTES_MENU = [
     { key: 'matricula', label: 'Reporte de Matrícula' },
@@ -10,16 +11,6 @@ const REPORTES_MENU = [
     { key: 'caja', label: 'Reporte de Caja' }
 ];
 
-
-
-
-
-const MOCK_DEUDAS = [
-    { alumno: 'Chinga Ramos, Carlos', doc: '75412638', concepto: 'Marzo 2026', monto: 100, vencimiento: '15/04/2026', diasAtraso: 85, estado: 'Pendiente' },
-    { alumno: 'Chinga Ramos, Carlos', doc: '75412638', concepto: 'Abril 2026', monto: 100, vencimiento: '15/05/2026', diasAtraso: 55, estado: 'Bloqueado' },
-    { alumno: 'López Díaz, Lucía', doc: '47112233', concepto: 'Abril 2026', monto: 100, vencimiento: '15/05/2026', diasAtraso: 55, estado: 'Pendiente' },
-    { alumno: 'Quispe Meza, Pedro', doc: '52009871', concepto: 'Marzo 2026', monto: 100, vencimiento: '15/04/2026', diasAtraso: 85, estado: 'Pendiente' }
-];
 
 const MOCK_CAJA_INGRESOS = [
     { mes: 'Enero', concepto: 'Matrículas', cantPagos: 15, total: 3000 },
@@ -30,13 +21,41 @@ const MOCK_CAJA_INGRESOS = [
     { mes: 'Junio', concepto: 'Cuotas mensuales', cantPagos: 8, total: 800 }
 ];
 
-const formatSoles = (n) => `S/ ${n.toLocaleString('es-PE')}`;
+const formatSoles = (n) =>
+    `S/ ${Number(n || 0).toLocaleString('es-PE')}`;
 
 const getEstadoVacante = (ocupados, cupo) => {
     const vacantes = cupo - ocupados;
     if (vacantes <= 0) return { label: 'Llena', className: 'estado-llena', color: '#b91c1c' };
     if (ocupados / cupo >= 0.85) return { label: 'Casi llena', className: 'estado-casi', color: '#b45309' };
     return { label: 'Disponible', className: 'estado-disponible', color: '#15803d' };
+};
+const getEstadoDeuda = (estado) => {
+    switch ((estado || '').toUpperCase()) {
+        case 'AL_DIA':
+            return {
+                label: 'al día',
+                className: 'status-badge status-active'
+            };
+
+        case 'PENDIENTE':
+            return {
+                label: 'pendiente',
+                className: 'estado-deuda-pill'
+            };
+
+        case 'VENCIDA':
+            return {
+                label: 'vencida',
+                className: 'estado-bloqueado-pill'
+            };
+
+        default:
+            return {
+                label: (estado || '').toLowerCase(),
+                className: 'status-badge'
+            };
+    }
 };
 
 const descargarCSV = (nombreArchivo, encabezado, filas) => {
@@ -125,8 +144,66 @@ const Reportes = () => {
             cupoMax: a.capacidadMaxima
         }));
 
+        // ===== Datos reales para el reporte de Deudas =====
+const [deudasBackend, setDeudasBackend] = useState([]);
+const [cargandoDeudas, setCargandoDeudas] = useState(false);
+const [errorDeudas, setErrorDeudas] = useState('');
+
+useEffect(() => {
+    if (reporteActivo !== 'deudas' || !codAnioReporte) return;
+
+    let activo = true;
+
+    const cargarDeudas = async () => {
+        setCargandoDeudas(true);
+        setErrorDeudas('');
+
+        try {
+            const data = await listarDeudas({
+                codAnioAcademico: codAnioReporte,
+                estado:
+                    estadoDeudaFiltro === 'todos'
+                        ? undefined
+                        : estadoDeudaFiltro
+            });
+
+            if (activo) {
+                setDeudasBackend(data);
+            }
+        } catch (err) {
+            console.error('Error cargando deudas', err);
+
+            if (activo) {
+                setErrorDeudas(
+                    'No se pudieron cargar las deudas desde el servidor.'
+                );
+            }
+        } finally {
+            if (activo) {
+                setCargandoDeudas(false);
+            }
+        }
+    };
+
+    cargarDeudas();
+
+    return () => {
+        activo = false;
+    };
+}, [reporteActivo, codAnioReporte, estadoDeudaFiltro]);
+
+const deudasFiltradas = deudasBackend.map((d) => ({
+    codDeuda: d.codDeuda,
+    alumno: `${d.matricula?.alumno?.apellidoPaterno || ''} ${d.matricula?.alumno?.apellidoMaterno || ''}, ${d.matricula?.alumno?.nombres || ''}`.trim(),
+    doc: d.matricula?.alumno?.numeroDocumento || '',
+    aula: `${d.matricula?.aula?.nivel?.nombre || ''} ${d.matricula?.aula?.grado?.nombre || ''} "${d.matricula?.aula?.seccion || ''}"`,
+    montoTotal: Number(d.montoTotal || 0),
+    montoPendiente: Number(d.montoPendiente || 0),
+    estado: d.estado
+}));
+
    
-    const deudasFiltradas = estadoDeudaFiltro === 'todos' ? MOCK_DEUDAS : MOCK_DEUDAS.filter(d => d.estado === estadoDeudaFiltro);
+
     const cajaFiltrada = mesCajaFiltro === 'todos' ? MOCK_CAJA_INGRESOS : MOCK_CAJA_INGRESOS.filter(c => c.mes === mesCajaFiltro);
     const cajaTotalIngresos = cajaFiltrada.reduce((acc, c) => acc + c.total, 0);
     const cajaTotalPagos = cajaFiltrada.reduce((acc, c) => acc + c.cantPagos, 0);
@@ -150,9 +227,28 @@ const Reportes = () => {
     };
 
     const exportarDeudasCSV = () => {
-        const filas = deudasFiltradas.map(d => [d.alumno, d.doc, d.concepto, d.monto, d.vencimiento, d.diasAtraso, d.estado]);
-        descargarCSV(`reporte-deudas-${anioReporte}.csv`, ['Alumno', 'Documento', 'Concepto', 'Monto', 'Vencimiento', 'Días de Atraso', 'Estado'], filas);
-    };
+    const filas = deudasFiltradas.map((d) => [
+        d.alumno,
+        d.doc,
+        d.aula,
+        d.montoTotal,
+        d.montoPendiente,
+        d.estado
+    ]);
+
+    descargarCSV(
+        `reporte-deudas-${anioReporte}.csv`,
+        [
+            'Alumno',
+            'Documento',
+            'Aula',
+            'Monto Total',
+            'Monto Pendiente',
+            'Estado'
+        ],
+        filas
+    );
+};
 
     const exportarCajaCSV = () => {
         const filas = cajaFiltrada.map(c => [c.mes, c.concepto, c.cantPagos, c.total]);
@@ -334,17 +430,28 @@ const Reportes = () => {
                             <div className="perm-box" style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
                                 <div className="filter-group">
                                     <label>Año académico</label>
-                                    <select className="filter-select" value={anioReporte} onChange={(e) => setAnioReporte(e.target.value)}>
-                                        <option value="2026">2026</option>
-                                        <option value="2025">2025</option>
-                                    </select>
+                                    <select
+    className="filter-select"
+    value={anioReporte}
+    onChange={(e) => setAnioReporte(e.target.value)}
+>
+    {aniosCatalogo.map((a) => (
+        <option
+            key={a.codAnioAcademico}
+            value={a.anio}
+        >
+            {a.anio}
+        </option>
+    ))}
+</select>
                                 </div>
                                 <div className="filter-group">
                                     <label>Estado</label>
                                     <select className="filter-select" value={estadoDeudaFiltro} onChange={(e) => setEstadoDeudaFiltro(e.target.value)}>
                                         <option value="todos">Todos</option>
-                                        <option value="Pendiente">Pendiente</option>
-                                        <option value="Bloqueado">Bloqueado</option>
+<option value="PENDIENTE">Pendiente</option>
+<option value="AL_DIA">Al día</option>
+<option value="VENCIDA">Vencida</option>
                                     </select>
                                 </div>
                                 <button type="button" className="pagar-btn-solid" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={exportarDeudasCSV}>
@@ -354,37 +461,93 @@ const Reportes = () => {
                             </div>
 
                             <div className="perm-box">
-                                <p className="perm-subtitle">Reporte de Deudas — {anioReporte}</p>
-                                <table className="pagos-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Alumno</th><th>Documento</th><th>Concepto</th><th>Monto</th>
-                                            <th>Vencimiento</th><th>Días atraso</th><th>Estado</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {deudasFiltradas.map((d, idx) => (
-                                            <tr key={idx} className={d.estado === 'Bloqueado' ? 'pagos-row-bloqueado' : 'pagos-row-deuda'}>
-                                                <td>{d.alumno}</td>
-                                                <td>{d.doc}</td>
-                                                <td>{d.concepto}</td>
-                                                <td>{formatSoles(d.monto)}</td>
-                                                <td>{d.vencimiento}</td>
-                                                <td>{d.diasAtraso} días</td>
-                                                <td>
-                                                    {d.estado === 'Bloqueado' ? (
-                                                        <span className="estado-bloqueado-pill">bloqueado</span>
-                                                    ) : (
-                                                        <span className="estado-deuda-pill">pendiente</span>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                                <p className="table-footer-note">
-                                    ⓘ Deuda total: <strong>{formatSoles(deudasFiltradas.reduce((acc, d) => acc + d.monto, 0))}</strong> — {new Set(deudasFiltradas.map(d => d.alumno)).size} alumno(s) con deuda.
-                                </p>
+                                <p className="perm-subtitle">
+    Reporte de Deudas — {anioReporte}
+</p>
+
+{cargandoDeudas ? (
+    <p style={{ fontStyle: 'italic', color: '#6b7280' }}>
+        Cargando deudas...
+    </p>
+) : errorDeudas ? (
+    <p style={{ color: '#dc2626' }}>
+        {errorDeudas}
+    </p>
+) : (
+    <>
+        <table className="pagos-table">
+            <thead>
+                <tr>
+                    <th>Alumno</th>
+                    <th>Documento</th>
+                    <th>Aula</th>
+                    <th>Monto total</th>
+                    <th>Monto pendiente</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {deudasFiltradas.map((d) => {
+                    const infoEstado = getEstadoDeuda(d.estado);
+
+                    return (
+                        <tr
+                            key={d.codDeuda}
+                            className={
+                                d.estado === 'PENDIENTE'
+                                    ? 'pagos-row-deuda'
+                                    : ''
+                            }
+                        >
+                            <td>{d.alumno}</td>
+                            <td>{d.doc}</td>
+                            <td>{d.aula}</td>
+                            <td>{formatSoles(d.montoTotal)}</td>
+                            <td>{formatSoles(d.montoPendiente)}</td>
+                            <td>
+                                <span className={infoEstado.className}>
+                                    {infoEstado.label}
+                                </span>
+                            </td>
+                        </tr>
+                    );
+                })}
+
+                {deudasFiltradas.length === 0 && (
+                    <tr>
+                        <td
+                            colSpan="6"
+                            className="table-footer-note"
+                        >
+                            No hay registros de deuda para el año{' '}
+                            {anioReporte}.
+                        </td>
+                    </tr>
+                )}
+            </tbody>
+        </table>
+
+        <p className="table-footer-note">
+            ⓘ Deuda pendiente total:{' '}
+            <strong>
+                {formatSoles(
+                    deudasFiltradas.reduce(
+                        (acc, d) => acc + d.montoPendiente,
+                        0
+                    )
+                )}
+            </strong>
+            {' — '}
+            {
+                deudasFiltradas.filter(
+                    (d) => d.estado === 'PENDIENTE'
+                ).length
+            }{' '}
+            matrícula(s) con deuda.
+        </p>
+    </>
+)}
                             </div>
                         </>
                     ) : (
