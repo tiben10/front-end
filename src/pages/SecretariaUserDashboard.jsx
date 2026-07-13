@@ -2547,9 +2547,16 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
                             )}
                         </main>
                     ) : activeTab === 'reportes' ? (
-                        <main className="dash-content" style={{ flex: 1 }}>
-                            <Reportes />
-                        </main>
+                        <main
+    className="dash-content"
+    style={{
+        flex: 1,
+        minWidth: 0,
+        width: '100%'
+    }}
+>
+    <Reportes />
+</main>
                     ) : activeTab === 'clave' ? (
                         <main className="dash-content" style={{ flex: 1 }}>
                             <h3 className="section-title">Cambiar mi clave</h3>
