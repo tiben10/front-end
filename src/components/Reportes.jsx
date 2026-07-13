@@ -1,15 +1,7 @@
 import { useState, useEffect } from 'react';
 import { listarAulas } from '../services/aulaService';
 import { listarMatriculas } from '../services/matriculaService';
-// ============================================================================
-// Reportes.jsx
-// ----------------------------------------------------------------------------
-// Modulo de Reportes (Vacantes / Matricula / Deudas / Caja), reutilizable entre
-// paneles (Superusuario, Secretaria, y a futuro Director). Es autocontenido:
-// trae sus propios datos simulados, su propio estado (pestana activa, filtros)
-// y su propia logica de exportacion a CSV. Los dashboards que lo usan solo
-// necesitan renderizar <Reportes /> dentro de su pestana "Reportes".
-// ============================================================================
+import { anioAcademicoService } from '../services/catalogoService';
 
 const REPORTES_MENU = [
     { key: 'matricula', label: 'Reporte de Matrícula' },
@@ -20,12 +12,7 @@ const REPORTES_MENU = [
 
 
 
-const MOCK_MATRICULA = [
-    { aula: 'A', nivel: 'Inicial', grado: '3 años', matriculados: 20, cupoMax: 25 },
-    { aula: 'B', nivel: 'Inicial', grado: '3 años', matriculados: 18, cupoMax: 25 },
-    { aula: 'A', nivel: 'Primaria', grado: '1°', matriculados: 30, cupoMax: 35 },
-    { aula: 'A', nivel: 'Secundaria', grado: '1°', matriculados: 35, cupoMax: 35 }
-];
+
 
 const MOCK_DEUDAS = [
     { alumno: 'Chinga Ramos, Carlos', doc: '75412638', concepto: 'Marzo 2026', monto: 100, vencimiento: '15/04/2026', diasAtraso: 85, estado: 'Pendiente' },
@@ -70,6 +57,16 @@ const Reportes = () => {
     const [nivelFiltro, setNivelFiltro] = useState('todos');
     const [estadoDeudaFiltro, setEstadoDeudaFiltro] = useState('todos');
     const [mesCajaFiltro, setMesCajaFiltro] = useState('todos');
+    // ===== Catálogo de años académicos (para llenar los selects con años reales) =====
+    const [aniosCatalogo, setAniosCatalogo] = useState([]);
+    useEffect(() => {
+        anioAcademicoService.listar()
+            .then((data) => setAniosCatalogo(data.filter(a => a.estado)))
+            .catch((err) => console.error('Error cargando años académicos', err));
+    }, []);
+    const codAnioReporte = aniosCatalogo.find(a => String(a.anio) === anioReporte)?.codAnioAcademico;
+
+
 
     // ===== Datos reales para el reporte de Vacantes (aulas + matrículas) =====
     const [aulasBackend, setAulasBackend] = useState([]);
@@ -117,8 +114,18 @@ const Reportes = () => {
             ocupados: ocupadasPorAula[a.codAula] || 0,
             cupo: a.capacidadMaxima
         }));
+          const matriculaDelAnio = aulasBackend
+        .filter((a) => a.estado && String(a.anioAcademico?.anio) === anioReporte)
+        .filter((a) => nivelFiltro === 'todos' || a.nivel?.nombre === nivelFiltro)
+        .map((a) => ({
+            aula: a.codAula,
+            nivel: a.nivel?.nombre || '',
+            grado: a.grado?.nombre || '',
+            matriculados: ocupadasPorAula[a.codAula] || 0,
+            cupoMax: a.capacidadMaxima
+        }));
 
-    const matriculaFiltrada = nivelFiltro === 'todos' ? MOCK_MATRICULA : MOCK_MATRICULA.filter(m => m.nivel === nivelFiltro);
+   
     const deudasFiltradas = estadoDeudaFiltro === 'todos' ? MOCK_DEUDAS : MOCK_DEUDAS.filter(d => d.estado === estadoDeudaFiltro);
     const cajaFiltrada = mesCajaFiltro === 'todos' ? MOCK_CAJA_INGRESOS : MOCK_CAJA_INGRESOS.filter(c => c.mes === mesCajaFiltro);
     const cajaTotalIngresos = cajaFiltrada.reduce((acc, c) => acc + c.total, 0);
@@ -135,7 +142,7 @@ const Reportes = () => {
     };
 
     const exportarMatriculaCSV = () => {
-        const filas = matriculaFiltrada.map(m => {
+        const filas = matriculaDelAnio.map(m => {
             const pct = Math.round((m.matriculados / m.cupoMax) * 100);
             return [m.aula, m.nivel, m.grado, m.matriculados, m.cupoMax, `${pct}%`];
         });
@@ -188,8 +195,7 @@ const Reportes = () => {
                                 <div className="filter-group">
                                     <label>Año académico</label>
                                     <select className="filter-select" value={anioReporte} onChange={(e) => setAnioReporte(e.target.value)}>
-                                        <option value="2026">2026</option>
-                                        <option value="2025">2025</option>
+                                        {aniosCatalogo.map(a => <option key={a.codAnioAcademico} value={a.anio}>{a.anio}</option>)}
                                     </select>
                                 </div>
                                 <button type="button" className="pagar-btn-solid" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={exportarVacantesCSV}>
@@ -252,8 +258,7 @@ const Reportes = () => {
                                 <div className="filter-group">
                                     <label>Año académico</label>
                                     <select className="filter-select" value={anioReporte} onChange={(e) => setAnioReporte(e.target.value)}>
-                                        <option value="2026">2026</option>
-                                        <option value="2025">2025</option>
+                                        {aniosCatalogo.map(a => <option key={a.codAnioAcademico} value={a.anio}>{a.anio}</option>)}
                                     </select>
                                 </div>
                                 <div className="filter-group">
@@ -273,43 +278,55 @@ const Reportes = () => {
 
                             <div className="perm-box">
                                 <p className="perm-subtitle">Reporte de Matrículas — {anioReporte}</p>
-                                <table className="users-table">
-                                    <thead>
-                                        <tr>
-                                            <th>#</th><th>Aula</th><th>Nivel</th><th>Grado</th>
-                                            <th>Matriculados</th><th>Cupo máx.</th><th>% Ocupación</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {matriculaFiltrada.map((m, idx) => {
-                                            const pct = Math.round((m.matriculados / m.cupoMax) * 100);
-                                            return (
-                                                <tr key={idx}>
-                                                    <td>{idx + 1}</td>
-                                                    <td>{m.aula}</td>
-                                                    <td>{m.nivel}</td>
-                                                    <td>{m.grado}</td>
-                                                    <td>{m.matriculados}</td>
-                                                    <td>{m.cupoMax}</td>
-                                                    <td>
-                                                        <div className="cupo-cell">
-                                                            <span className="cupo-fraction">{pct}%</span>
-                                                            <div className="cupo-bar-track">
-                                                                <div
-                                                                    className={`cupo-bar-fill ${pct >= 100 ? 'fill-red' : pct >= 85 ? 'fill-amber' : 'fill-green'}`}
-                                                                    style={{ width: `${Math.min(100, pct)}%` }}
-                                                                ></div>
-                                                            </div>
-                                                        </div>
-                                                    </td>
+
+                                {cargandoVacantes ? (
+                                    <p style={{ fontStyle: 'italic', color: '#6b7280' }}>Cargando matrículas...</p>
+                                ) : errorVacantes ? (
+                                    <p style={{ color: '#dc2626' }}>{errorVacantes}</p>
+                                ) : (
+                                    <>
+                                        <table className="users-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>#</th><th>Aula</th><th>Nivel</th><th>Grado</th>
+                                                    <th>Matriculados</th><th>Cupo máx.</th><th>% Ocupación</th>
                                                 </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                                <p className="table-footer-note">
-                                    ⓘ Total matriculados {anioReporte}: <strong>{matriculaFiltrada.reduce((acc, m) => acc + m.matriculados, 0)}</strong> alumnos.
-                                </p>
+                                            </thead>
+                                            <tbody>
+                                                {matriculaDelAnio.map((m, idx) => {
+                                                    const pct = Math.round((m.matriculados / m.cupoMax) * 100);
+                                                    return (
+                                                        <tr key={m.aula}>
+                                                            <td>{idx + 1}</td>
+                                                            <td>{m.aula}</td>
+                                                            <td>{m.nivel}</td>
+                                                            <td>{m.grado}</td>
+                                                            <td>{m.matriculados}</td>
+                                                            <td>{m.cupoMax}</td>
+                                                            <td>
+                                                                <div className="cupo-cell">
+                                                                    <span className="cupo-fraction">{pct}%</span>
+                                                                    <div className="cupo-bar-track">
+                                                                        <div
+                                                                            className={`cupo-bar-fill ${pct >= 100 ? 'fill-red' : pct >= 85 ? 'fill-amber' : 'fill-green'}`}
+                                                                            style={{ width: `${Math.min(100, pct)}%` }}
+                                                                        ></div>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                                {matriculaDelAnio.length === 0 && (
+                                                    <tr><td colSpan="7" className="table-footer-note">No hay aulas registradas para el año {anioReporte}.</td></tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                        <p className="table-footer-note">
+                                            ⓘ Total matriculados {anioReporte}: <strong>{matriculaDelAnio.reduce((acc, m) => acc + m.matriculados, 0)}</strong> alumnos.
+                                        </p>
+                                    </>
+                                )}
                             </div>
                         </>
                     ) : reporteActivo === 'deudas' ? (
