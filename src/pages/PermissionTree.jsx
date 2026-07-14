@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 
-// Agrupacion visual por nombre de funcionalidad (el backend no maneja categoria).
-// Ajusta las palabras clave si tus funcionalidades reales tienen otros nombres.
+
 const CATEGORIAS = [
     {
         nombre: 'Seguridad',
@@ -39,8 +38,7 @@ function agruparPorCategoria(functionalities) {
     return grupos;
 }
 
-// Checkbox controlado que soporta estado "indeterminate" de forma confiable
-// (usar useRef + useEffect en vez de un ref inline evita problemas de timing).
+
 const Checkbox = ({ checked, indeterminate = false, onChange, disabled = false }) => {
     const ref = useRef(null);
 
@@ -93,8 +91,7 @@ const PermissionTree = ({ functionalities, permissions, onToggle, readOnly = fal
         setExpandedFuncs(new Set());
     };
 
-    // Igual que en la version Angular (permisos.component.ts): una funcionalidad esta
-    // "toda marcada" cuando TODAS sus acciones (ver, crear, editar, eliminar, imprimir) estan activas.
+    
     const isFuncAllChecked = (func) => {
         const p = permissions[func.idFuncionalidad] || {};
         return ACCIONES.every(a => !!p[a.key]);
@@ -105,8 +102,7 @@ const PermissionTree = ({ functionalities, permissions, onToggle, readOnly = fal
         return ACCIONES.some(a => !!p[a.key]);
     };
 
-    // Checkbox de la categoria (equivalente a onParentChange en Angular):
-    // activa/desactiva TODAS las acciones de TODAS las funcionalidades del grupo.
+    
     const handleToggleCategoria = (items) => {
         if (readOnly) return;
         const target = !items.every(f => isFuncAllChecked(f));
@@ -118,8 +114,7 @@ const PermissionTree = ({ functionalities, permissions, onToggle, readOnly = fal
         });
     };
 
-    // Checkbox de la funcionalidad (equivalente a onLeafChange en Angular):
-    // activa/desactiva TODAS las acciones de esa funcionalidad.
+    
     const handleToggleFuncionalidad = (func) => {
         if (readOnly) return;
         const target = !isFuncAllChecked(func);

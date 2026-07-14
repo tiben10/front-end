@@ -27,7 +27,7 @@
     overflow: hidden;
 }
 
-/* Cabecera */
+
 .dash-header {
     display: flex;
     justify-content: space-between;
@@ -137,14 +137,13 @@
     margin-right: 0.2rem;
 }
 
-/* Tabla Central */
+
 .dash-content {
     padding: 1.5rem;
     border-right: 1px solid #e5e7eb;
 }
 
-/* Pestañas sin panel lateral (Permisos, Clave, Trazabilidad, Parámetros): que el contenido
-   ocupe también la columna donde normalmente iría dash-permissions, en vez de quedar angosto */
+
 .dash-content-full {
     grid-column: 2 / -1;
     border-right: none;
@@ -210,7 +209,7 @@
     color: #6b7280;
 }
 
-/* Badges (Insignias) */
+
 .role-badge {
     padding: 0.15rem 0.6rem;
     border-radius: 9999px;
@@ -255,7 +254,7 @@
     color: #b91c1c;
 }
 
-/* Panel de Permisos */
+
 .dash-permissions {
     padding: 1.5rem;
 }
@@ -316,7 +315,7 @@
     background-color: #f9fafb;
 }
 
-/* Interactividad de la Tabla */
+
 .clickable-row {
     cursor: pointer;
     transition: background-color 0.2s ease;
@@ -328,14 +327,14 @@
 
 .selected-row {
     background-color: #eff6ff !important;
-    /* Un azul ultra suave para destacar */
+    
     border-left: 3px solid #2563eb;
-    /* Una pequeña barra lateral azul para guiar la vista */
+    
 }
 
 .selected-row td:first-child {
     padding-left: calc(0.75rem - 3px);
-    /* Ajuste sutil para que el texto no salte por el borde */
+    
 }
 
 .tree-container {
@@ -366,7 +365,7 @@
     color: #6b7280;
 }
 
-/* ================= Panel Secretaria — Aulas ================= */
+
 
 .filters-row {
     display: flex;
@@ -412,7 +411,7 @@
     background-color: #f9fafb;
 }
 
-/* Barra de cupo (fracción + mini progress bar) */
+
 .cupo-cell {
     display: flex;
     flex-direction: column;
@@ -444,7 +443,7 @@
 .cupo-bar-fill.fill-red { background-color: #dc2626; }
 .cupo-bar-fill.fill-gray { background-color: #d1d5db; }
 
-/* Badges de estado de aula */
+
 .estado-badge {
     padding: 0.2rem 0.65rem;
     border-radius: 9999px;
@@ -475,7 +474,7 @@
     color: #1f2937;
 }
 
-/* Fila seleccionada de aula (resaltado en rojo, distinto al azul de usuarios) */
+
 .selected-row-aula {
     background-color: #fef2f2 !important;
     border-left: 3px solid #ef4444;
@@ -485,7 +484,7 @@
     padding-left: calc(0.75rem - 3px);
 }
 
-/* Panel derecho: detalle de aula */
+
 .aula-detail-header {
     display: flex;
     align-items: center;
@@ -616,7 +615,7 @@
     border-radius: 0.5rem;
 }
 
-/* ================= Panel Secretaria — Matrícula ================= */
+
 
 .field-group {
     margin-bottom: 1.1rem;
@@ -747,7 +746,7 @@
     margin-top: 0.85rem;
 }
 
-/* Modales de búsqueda */
+
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -844,7 +843,7 @@
     background-color: #f9fafb;
 }
 
-/* ================= Panel Secretaria — Pagos ================= */
+
 
 .badge-anio-actual {
     display: inline-block;
@@ -1034,7 +1033,7 @@
     background: transparent;
 }
 
-/* ================= Panel Superusuario — Reportes ================= */
+
 
 .reportes-menu {
     width: 230px;
@@ -1068,7 +1067,7 @@
     color: #1d4ed8;
     font-weight: 600;
 }
-/* ================= Panel Director — Registros ================= */
+
 
 .director-summary-grid {
     display: grid;
@@ -1110,7 +1109,7 @@
     border-right: none;
 }
 
-/* Modal de Auditoría completa (pestaña Trazabilidad) */
+
 .audit-modal-overlay {
     position: fixed;
     inset: 0;
@@ -1374,7 +1373,7 @@
     border-radius: 0.6rem;
 }
 
-/* Tabla compacta de "últimos 10 registros" dentro de la pestaña Trazabilidad (no modal) */
+
 .audit-recent-wrap {
     border: 1px solid #e5e7eb;
     border-radius: 0.6rem;

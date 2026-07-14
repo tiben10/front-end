@@ -19,9 +19,9 @@ import {
 } from '../services/conceptoService';
 import { listarCuotasPago, procesarPago } from '../services/pagoService';
 
-const TOTP_STEP = 30; // segundos que dura cada codigo, igual que Google Authenticator
+const TOTP_STEP = 30; 
 
-// Decodifica un secreto Base32 (el que devuelve /auth/generar-2fa) a bytes
+
 const base32Decode = (base32) => {
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
     let bits = '';
@@ -35,7 +35,7 @@ const base32Decode = (base32) => {
     return new Uint8Array(bytes);
 };
 
-// Genera el código TOTP REAL (RFC 6238) a partir del secreto real del usuario
+
 const generarCodigoTOTP = async (secretBase32) => {
     if (!secretBase32) return '------';
     const key = base32Decode(secretBase32);
@@ -185,7 +185,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
     const [claveExito, setClaveExito] = useState(false);
     const [currentUsername, setCurrentUsername] = useState('');
 
-    // Toma el usuario real que inicio sesion desde el token JWT
+    
     useEffect(() => {
         const token = localStorage.getItem('token');
         const claims = token ? decodeJwt(token) : null;
@@ -214,36 +214,36 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
     });
     const [matriculaMensaje, setMatriculaMensaje] = useState('');
 
-    // Verificacion en dos pasos (Google Authenticator) antes de confirmar la matricula
+    
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [claveVerificacion2FA, setClaveVerificacion2FA] = useState('');
     const [errorPassword2FA, setErrorPassword2FA] = useState('');
     const [show2FAModal, setShow2FAModal] = useState(false);
-    const [metodo2FA, setMetodo2FA] = useState('qr'); // 'qr' | 'secreto'
+    const [metodo2FA, setMetodo2FA] = useState('qr'); 
     const [secretoCopiado, setSecretoCopiado] = useState(false);
     const [codigo2FAInput, setCodigo2FAInput] = useState('');
     const [error2FA, setError2FA] = useState('');
     const [codigoActual2FA, setCodigoActual2FA] = useState('------');
     const [segundosRestantes2FA, setSegundosRestantes2FA] = useState(() => TOTP_STEP - (Math.floor(Date.now() / 1000) % TOTP_STEP));
-    const [secreto2FA, setSecreto2FA] = useState(null);   // { secret, qrUrl } real, viene del backend
+    const [secreto2FA, setSecreto2FA] = useState(null);  
     const [cargando2FA, setCargando2FA] = useState(false);
 
 
     const [anioConsultaPagos, setAnioConsultaPagos] = useState('2026');
     const [nombreAlumnoPagos, setNombreAlumnoPagos] = useState('');
     const [alumnoPagosSeleccionadoObj, setAlumnoPagosSeleccionadoObj] = useState(null); // { id, nombre, ... } real
-    const [cuotasPagosBackend, setCuotasPagosBackend] = useState([]);  // todas las cuotas reales del alumno (todos los años)
+    const [cuotasPagosBackend, setCuotasPagosBackend] = useState([]);  
     const [cargandoCuotasPagos, setCargandoCuotasPagos] = useState(false);
     const [errorCuotasPagos, setErrorCuotasPagos] = useState('');
     const [reciboMensaje, setReciboMensaje] = useState('');
     const [showHistorialPagosModal, setShowHistorialPagosModal] = useState(false);
 
 
-    // ===== Conceptos (datos reales vía /api/conceptos) =====
-    const [aniosAcademicosCatalogo, setAniosAcademicosCatalogo] = useState([]); // [{codAnioAcademico, anio}]
-    const [tiposConceptoCatalogo, setTiposConceptoCatalogo] = useState([]);     // [{codTipoConcepto, nombre}]
-    const [conceptosBackend, setConceptosBackend] = useState([]);              // conceptos crudos, todos los años
-    const [selectedAnioConceptoId, setSelectedAnioConceptoId] = useState(null); // codAnioAcademico elegido
+    
+    const [aniosAcademicosCatalogo, setAniosAcademicosCatalogo] = useState([]); 
+    const [tiposConceptoCatalogo, setTiposConceptoCatalogo] = useState([]);     
+    const [conceptosBackend, setConceptosBackend] = useState([]);              
+    const [selectedAnioConceptoId, setSelectedAnioConceptoId] = useState(null); 
     const [cargandoConceptos, setCargandoConceptos] = useState(false);
     const [errorConceptos, setErrorConceptos] = useState('');
     const [guardandoConcepto, setGuardandoConcepto] = useState(false);
@@ -254,7 +254,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
     const [newConcepto, setNewConcepto] = useState({ nombre: '', codTipoConcepto: '', monto: '', obligatorio: true });
     const [anioDestinoClonar, setAnioDestinoClonar] = useState('');
 
-    // Carga los catálogos (años académicos, tipos de concepto) una sola vez, al montar el panel
+    
     useEffect(() => {
         if (aniosAcademicosCatalogo.length > 0) return;
         Promise.all([anioAcademicoService.listar(), tipoConceptoService.listar()])
@@ -270,7 +270,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
             });
     }, [aniosAcademicosCatalogo.length]);
 
-    // Trae los conceptos reales del backend
+    
     const cargarConceptos = useCallback(async () => {
         setCargandoConceptos(true);
         setErrorConceptos('');
@@ -467,7 +467,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
         const interval = setInterval(actualizarCodigo, 1000);
         return () => clearInterval(interval);
     }, [show2FAModal, secreto2FA]);
-    // Carga aulas, alumnos y matrículas reales desde el backend y las adapta al formato que usa el panel
+    
     useEffect(() => {
         let activo = true;
 
@@ -482,7 +482,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
                 ]);
                 if (!activo) return;
 
-                // Cuántos alumnos con matrícula activa tiene cada aula (para cupo/estado)
+                
                 const activasPorAula = {};
                 matriculasReales.forEach((m) => {
                     if (m.estado === 'activa' && m.aula?.codAula) {
@@ -506,7 +506,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
                         };
                     });
 
-                // Alumnos matriculados por aula, para la pestaña "Aulas" (listado)
+                
                 const porAula = {};
                 matriculasReales
                     .slice()
@@ -526,7 +526,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
                         porAula[codAula] = lista;
                     });
 
-                // Set de alumnos ya matriculados por año, para no ofrecerlos de nuevo al matricular
+                
                 const matriculadosPorAnio = {};
                 matriculasReales.forEach((m) => {
                     if (m.estado !== 'activa') return;
@@ -537,7 +537,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
                     matriculadosPorAnio[anio].push(codAlumno);
                 });
 
-                // Nivel/grado vigente de cada alumno, según su matrícula activa más reciente (para la pestaña Alumnos)
+                
                 const nivelGradoPorAlumno = {};
                 matriculasReales.forEach((m) => {
                     if (m.estado !== 'activa') return;
@@ -581,7 +581,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
         return () => { activo = false; };
     }, []);
 
-    // Carga los tipos de documento reales (DNI, CE, etc.) para el formulario de Nuevo Alumno
+    
     useEffect(() => {
         let activo = true;
         tipoDocumentoService.listar()
@@ -593,7 +593,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
         return () => { activo = false; };
     }, []);
 
-    // Carga los catálogos reales (niveles, grados, años academicos) para el formulario de "Nueva aula"
+    
     useEffect(() => {
         let activo = true;
         Promise.all([nivelService.listar(), gradoService.listar(), anioAcademicoService.listar()])
@@ -607,7 +607,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
         return () => { activo = false; };
     }, []);
 
-    // Carga TODAS las cuotas reales del alumno seleccionado en Pagos (todos los años, para armar el historial)
+    
     useEffect(() => {
         if (!alumnoPagosSeleccionadoObj?.id) {
             setCuotasPagosBackend([]);
@@ -630,7 +630,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
     const selectedAula = aulas.find(a => a.id === selectedAulaId) || null;
     const alumnosDeAula = selectedAula ? (alumnosPorAula[selectedAula.id] || []) : [];
 
-    // Aulas y alumnos para la pestaña "Alumnos" (independiente de la pestaña Aulas)
+    
     const aulasParaAlumnos = aulas.filter(a => a.anio === anioAlumnos && a.estado !== 'eliminada');
     const selectedAulaAlumnos = aulas.find(a => a.id === selectedAulaAlumnosId) || null;
     const alumnosDeAulaSeleccionada = selectedAulaAlumnos ? (alumnosPorAula[selectedAulaAlumnos.id] || []) : [];
@@ -742,7 +742,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
                 setNivelesCatalogo(prev => [...prev, nivel]);
             }
 
-            // Busca el grado por nombre; si no existe todavía, lo crea (ej. "1°", "3 años")
+            
             let grado = gradosCatalogo.find(g => g.nombre.toLowerCase() === gradoTexto.toLowerCase());
             if (!grado) {
                 grado = await gradoService.crear({ nombre: gradoTexto });
@@ -757,7 +757,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
                 capacidadMaxima: capacidadNumero
             });
 
-            // Recarga aulas reales desde el backend (misma logica de mapeo que el useEffect inicial)
+            
             const aulasBackend = await listarAulas();
             const matriculasReales = await listarMatriculas();
             const activasPorAula = {};
@@ -883,7 +883,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
     const aulasDisponiblesModal = aulas.filter(a =>
         a.anio === anioMatricula && a.estado !== 'llena' && a.estado !== 'eliminada'
     );
-    // Alumnos registrados (activos) que aún NO tienen matrícula activa en el año seleccionado
+   
     const alumnosDisponiblesModal = alumnosGeneral
         .filter(al => al.estado === 'activa')
         .filter(al => !(alumnosMatriculadosPorAnio[anioMatricula] || []).includes(al.id))
@@ -924,7 +924,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
     };
 
 
-    // Abre el modal de confirmacion de contrasena (primer paso, antes de mostrar el Authenticator)
+    
     const abrirVerificacion2FA = () => {
         if (!nombreAlumnoMatricula.trim() || !selectedAulaMatricula) return;
         if (aulaMatriculaLlena) return;
@@ -933,8 +933,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
         setShowPasswordModal(true);
     };
 
-    // Valida la contrasena (SIMULACION: no hay backend, se acepta cualquier valor de al menos 4 caracteres)
-    // y, si es correcta, pasa al segundo paso: mostrar el Google Authenticator (QR o secreto) + input del codigo.
+   
     const confirmarPassword2FA = async (e) => {
         e.preventDefault();
         if (!claveVerificacion2FA.trim()) {
@@ -946,7 +945,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
             return;
         }
 
-        // Si aun no tenemos un secreto 2FA real, lo tomamos de localStorage o lo pedimos al backend UNA SOLA VEZ
+        
         if (!secreto2FA) {
             const guardado = localStorage.getItem(`secreto2FA_${currentUsername}`);
             if (guardado) {
@@ -974,7 +973,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
         setShow2FAModal(true);
     };
 
-    // Copia el secreto manual de Google Authenticator al portapapeles
+
     const copiarSecreto2FA = async () => {
         try {
             await navigator.clipboard.writeText(secreto2FA?.secret || '');
@@ -985,7 +984,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
         }
     };
 
-    // Envia el codigo TOTP real al backend, que valida y crea la matricula de verdad
+    
     const confirmarCodigo2FA = async (e) => {
         e.preventDefault();
         setError2FA('');
@@ -1007,7 +1006,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
             setMatriculaMensaje(`✓ ${nombreAlumnoMatricula.trim()} matriculado correctamente (matrícula #${nuevaMatricula.codMatricula}).`);
             setTimeout(() => setMatriculaMensaje(''), 4000);
 
-            // Refresca aulas y matrículas reales desde el backend
+            
             const [aulasBackend, matriculasReales] = await Promise.all([listarAulas(), listarMatriculas()]);
             const activasPorAula = {};
             matriculasReales.forEach((m) => {
@@ -1049,7 +1048,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
             aulaLabel: `${a.nivel} ${a.grado} "${a.seccion}"`
         })));
 
-    // Cuotas reales del año que se está consultando, con su estado real (PENDIENTE/PAGADO) del backend
+    
     const cuotasAnioActual = cuotasPagosBackend
         .filter(c => c.matricula?.anioAcademico?.anio === anioConsultaPagos)
         .map(c => ({
@@ -1057,7 +1056,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
             concepto: c.concepto?.nombreConcepto || '',
             monto: Number(c.montoCobrado),
             orden: c.concepto?.ordenPago || 0,
-            estadoBackend: c.estado,       // 'PENDIENTE' | 'PAGADO'
+            estadoBackend: c.estado,       
             recibo: c.recibo,
             fechaPago: c.fechaPago
         }))
@@ -1077,7 +1076,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
         return { ...cuota, estadoPago: estado };
     });
 
-    // Historial de años anteriores (real), agrupado a partir de las cuotas del alumno
+    
     const historialPorAnioMap = {};
     cuotasPagosBackend.forEach((c) => {
         const anio = c.matricula?.anioAcademico?.anio;
@@ -1098,7 +1097,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
 
     const deudaAnterior = historialAlumno.find(h => h.estado === 'pendiente');
 
-    // Detalle de pagos ya realizados en el año consultado, para el modal "Historial de pagos"
+    
     const historialPagosDetalle = cuotasAnioActual.map((c) => ({
         id: c.id,
         concepto: c.concepto,
@@ -1123,7 +1122,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
         try {
             const cuotaPagada = await procesarPago(codCuota);
             setReciboMensaje(`✓ Recibo ${cuotaPagada.recibo} generado. Se registró en Auditoría.`);
-            // Refresca las cuotas reales del alumno tras el pago
+            
             const data = await listarCuotasPago(alumnoPagosSeleccionadoObj.id, null);
             setCuotasPagosBackend(data);
             setTimeout(() => setReciboMensaje(''), 4000);

@@ -25,5 +25,5 @@ export const isAuthenticated = () => !!localStorage.getItem('token');
 
 export const generar2FA = async () => {
     const response = await api.post('/auth/generar-2fa');
-    return response.data; // { secret, qrUrl }
+    return response.data; 
 };

@@ -28,11 +28,9 @@ const ProfileCard = ({ profile }) => {
              const claims = await login(username, password);
              const rol = claims?.rol?.toUpperCase();
 
-            // El rol real del usuario debe coincidir con el perfil (tarjeta)
-            // donde se ingresó el login. Si no coincide, se rechaza el
-            // acceso aunque las credenciales sean válidas.
+           
             if (rol !== profile.expectedRol) {
-                logout(); // limpia el token/rol que login() ya había guardado
+                logout(); 
                 Swal.fire(
                     'Acceso no permitido',
                     `El usuario "${username}" no tiene el perfil de ${profile.role}. Ingresa por la tarjeta correspondiente a tu rol (${rol ? rol.charAt(0) + rol.slice(1).toLowerCase() : 'desconocido'}).`,
@@ -51,7 +49,7 @@ const ProfileCard = ({ profile }) => {
                 : error.response?.data?.mensaje;
 
             if (status === 423) {
-                // Usuario bloqueado temporalmente por intentos fallidos (lo maneja el backend)
+                
                 Swal.fire(
                     'Cuenta bloqueada',
                     mensajeBackend || 'Tu cuenta está bloqueada temporalmente por múltiples intentos fallidos. Intente nuevamente en 15 minuto(s)',

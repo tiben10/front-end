@@ -54,14 +54,14 @@ const [permisosMenu, setPermisosMenu] = useState({ matricula: false, pagos: fals
 const [loadingPermisos, setLoadingPermisos] = useState(true);
 const [currentUsername, setCurrentUsername] = useState('');
 
-// Toma el usuario real que inicio sesion desde el token JWT
+
 useEffect(() => {
     const token = localStorage.getItem('token');
     const claims = token ? decodeJwt(token) : null;
     if (claims?.sub) setCurrentUsername(claims.sub);
 }, []);
 
-// Datos reales para las vistas de Matrícula / Pagos / Alumnos (solo lectura)
+
 const [matriculas, setMatriculas] = useState([]);
 const [alumnosBackend, setAlumnosBackend] = useState([]);
 const [aulasBackend, setAulasBackend] = useState([]);
@@ -73,7 +73,7 @@ const [codAlumnoPagos, setCodAlumnoPagos] = useState('');
 const [cuotasPagos, setCuotasPagos] = useState([]);
 const [cargandoCuotas, setCargandoCuotas] = useState(false);
 const [errorCuotas, setErrorCuotas] = useState('');
-const [cuotasPendientesAnio, setCuotasPendientesAnio] = useState(null); // conteo global, para la tarjeta de Registros
+const [cuotasPendientesAnio, setCuotasPendientesAnio] = useState(null); 
 
 useEffect(() => {
     const cargarPermisosMenu = async () => {
@@ -111,7 +111,7 @@ useEffect(() => {
     cargarPermisosMenu();
 }, []);
 
-// Carga matrículas y alumnos reales desde el backend para las vistas de solo lectura del Director
+
 useEffect(() => {
     let activo = true;
     const cargarDatos = async () => {
@@ -138,7 +138,7 @@ useEffect(() => {
     return () => { activo = false; };
 }, []);
 
-// Consulta las cuotas del alumno seleccionado en la pestaña Pagos
+
 useEffect(() => {
     if (!codAlumnoPagos) {
         setCuotasPagos([]);
@@ -162,7 +162,7 @@ useEffect(() => {
     return () => { activo = false; };
 }, [codAlumnoPagos]);
 
-// Cuenta las cuotas pendientes del año vigente en TODO el colegio, para la tarjeta de Registros
+
 useEffect(() => {
     let activo = true;
     listarCuotasPago(undefined, undefined)
@@ -180,7 +180,7 @@ useEffect(() => {
     return () => { activo = false; };
 }, []);
 
-// Nivel/grado vigente de cada alumno, según su matrícula activa más reciente
+
 const nivelGradoPorAlumno = {};
 matriculas.forEach((m) => {
     if ((m.estado || '').toLowerCase() !== 'activa') return;
@@ -211,8 +211,8 @@ const alumnosFiltrados = alumnosMapeados.filter((a) => {
 const matriculasOrdenadas = matriculas
     .slice()
     .sort((a, b) => (b.codMatricula || 0) - (a.codMatricula || 0));
-    // ===== Datos reales para el resumen de "Registros" =====
-const ANIO_VIGENTE = '2026'; // año académico que se muestra en el resumen
+    
+const ANIO_VIGENTE = '2026'; 
 
 const matriculasDelAnioActivas = matriculas.filter(
     (m) => String(m.anioAcademico?.anio) === ANIO_VIGENTE && (m.estado || '').toLowerCase() === 'activa'

@@ -86,7 +86,7 @@ const Reportes = () => {
     const [mesCajaFiltro, setMesCajaFiltro] = useState('todos');
 
     
-    // ===== Catálogo de años académicos (para llenar los selects con años reales) =====
+
     const [aniosCatalogo, setAniosCatalogo] = useState([]);
     useEffect(() => {
         anioAcademicoService.listar()
@@ -97,7 +97,6 @@ const Reportes = () => {
 
 
 
-    // ===== Datos reales para el reporte de Vacantes (aulas + matrículas) =====
     const [aulasBackend, setAulasBackend] = useState([]);
     const [matriculasBackend, setMatriculasBackend] = useState([]);
     const [cargandoVacantes, setCargandoVacantes] = useState(true);
@@ -124,7 +123,7 @@ const Reportes = () => {
         return () => { activo = false; };
     }, []);
 
-    // Cuántos alumnos con matrícula activa tiene cada aula
+
     const ocupadasPorAula = {};
     matriculasBackend.forEach((m) => {
         if ((m.estado || '').toLowerCase() === 'activa' && m.aula?.codAula) {
@@ -132,7 +131,7 @@ const Reportes = () => {
         }
     });
 
-    // Aulas activas del año seleccionado, con su ocupación real
+   
     const vacantesDelAnio = aulasBackend
         .filter((a) => a.estado && String(a.anioAcademico?.anio) === anioReporte)
         .map((a) => ({
@@ -154,7 +153,7 @@ const Reportes = () => {
             cupoMax: a.capacidadMaxima
         }));
 
-        // ===== Datos reales para el reporte de Deudas =====
+       
 const [deudasBackend, setDeudasBackend] = useState([]);
 const [cargandoDeudas, setCargandoDeudas] = useState(false);
 const [errorDeudas, setErrorDeudas] = useState('');
@@ -212,7 +211,7 @@ const deudasFiltradas = deudasBackend.map((d) => ({
     estado: d.estado
 }));
 
-   // ===== Datos reales para el reporte de Caja =====
+   
 const [cajaBackend, setCajaBackend] = useState([]);
 const [cargandoCaja, setCargandoCaja] = useState(false);
 const [errorCaja, setErrorCaja] = useState('');
