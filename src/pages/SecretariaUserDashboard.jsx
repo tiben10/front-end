@@ -199,8 +199,7 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
     pagos: false,
     alumnos: false,
     aulas: false,
-    conceptos: false,
-    reportes: false
+    conceptos: false
 });
 
 const [loadingPermisos, setLoadingPermisos] = useState(true);
@@ -1377,19 +1376,9 @@ const [loadingPermisos, setLoadingPermisos] = useState(true);
 
 <button
     className={`sidebar-item ${
-        !permisosMenu.reportes
-            ? 'disabled'
-            : activeTab === 'reportes'
-                ? 'active'
-                : ''
+        activeTab === 'reportes' ? 'active' : ''
     }`}
-    disabled={!permisosMenu.reportes || loadingPermisos}
     onClick={() => setActiveTab('reportes')}
-    title={
-        !permisosMenu.reportes
-            ? 'No tienes permiso para ver esta sección'
-            : ''
-    }
 >
     <svg
         viewBox="0 0 24 24"
@@ -1403,6 +1392,7 @@ const [loadingPermisos, setLoadingPermisos] = useState(true);
         <path d="M12 20V4"></path>
         <path d="M6 20v-6"></path>
     </svg>
+
     Reportes
 </button>
 
