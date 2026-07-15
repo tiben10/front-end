@@ -7,10 +7,20 @@ import { logout, generar2FA } from '../services/authService';
 import { decodeJwt } from '../services/jwt';
 import Reportes from '../components/Reportes';
 import { listarAulas, crearAula as crearAulaApi } from '../services/aulaService';
-import { nivelService, gradoService } from '../services/catalogoService';
+
 import { listarAlumnos, registrarAlumno } from '../services/alumnoService';
 import { listarMatriculas, registrarMatricula } from '../services/matriculaService';
-import { tipoDocumentoService, tipoConceptoService, anioAcademicoService } from '../services/catalogoService';
+import {
+    nivelService,
+    gradoService,
+    tipoDocumentoService,
+    tipoConceptoService,
+    anioAcademicoService,
+    rolService,
+    funcionalidadService
+} from '../services/catalogoService';
+
+import { obtenerPermisosPorRol } from '../services/permisoService';
 import {
     listarConceptos,
     crearConcepto as crearConceptoAPI,
@@ -184,13 +194,117 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
     const [claveError, setClaveError] = useState('');
     const [claveExito, setClaveExito] = useState(false);
     const [currentUsername, setCurrentUsername] = useState('');
+    const [permisosMenu, setPermisosMenu] = useState({
+    matricula: false,
+    pagos: false,
+    alumnos: false,
+    aulas: false,
+    conceptos: false,
+    reportes: false
+});
 
+const [loadingPermisos, setLoadingPermisos] = useState(true);
     
     useEffect(() => {
         const token = localStorage.getItem('token');
         const claims = token ? decodeJwt(token) : null;
         if (claims?.sub) setCurrentUsername(claims.sub);
     }, []);
+
+    useEffect(() => {
+    let activo = true;
+
+    const cargarPermisosMenu = async () => {
+        setLoadingPermisos(true);
+
+        try {
+            const [roles, funcionalidades] = await Promise.all([
+                rolService.listar(),
+                funcionalidadService.listar()
+            ]);
+
+            const rolSecretaria = roles.find(
+                (rol) => rol.nombreRol?.toUpperCase() === 'SECRETARIA'
+            );
+
+            if (!rolSecretaria) {
+                console.error('No se encontró el rol SECRETARIA.');
+                return;
+            }
+
+            const permisosGuardados = await obtenerPermisosPorRol(
+                rolSecretaria.idRol
+            );
+
+            const tienePermisoVer = (...palabrasClave) => {
+                const funcionalidad = funcionalidades.find((func) => {
+                    const nombre = func.nombre?.toLowerCase() || '';
+
+                    return palabrasClave.some((palabra) =>
+                        nombre.includes(palabra.toLowerCase())
+                    );
+                });
+
+                if (!funcionalidad) return false;
+
+                const permiso = permisosGuardados.find(
+                    (p) =>
+                        p.funcionalidad?.idFuncionalidad ===
+                        funcionalidad.idFuncionalidad
+                );
+
+                return Boolean(permiso?.ver);
+            };
+
+            const nuevosPermisos = {
+                matricula: tienePermisoVer('matric'),
+                pagos: tienePermisoVer('pago'),
+                alumnos: tienePermisoVer('alumno'),
+                aulas: tienePermisoVer('aula'),
+                conceptos: tienePermisoVer('concepto'),
+                reportes: tienePermisoVer('reporte')
+            };
+
+            if (!activo) return;
+
+            setPermisosMenu(nuevosPermisos);
+
+            /*
+             * Evita que permanezca abierta una pestaña que no tiene permiso.
+             * Si Matrícula está deshabilitada, abre la primera sección permitida.
+             */
+            setActiveTab((tabActual) => {
+                if (
+                    tabActual === 'clave' ||
+                    nuevosPermisos[tabActual]
+                ) {
+                    return tabActual;
+                }
+
+                const primeraPermitida = Object.keys(nuevosPermisos).find(
+                    (tab) => nuevosPermisos[tab]
+                );
+
+                return primeraPermitida || 'clave';
+            });
+        } catch (err) {
+            console.error(
+                'Error cargando permisos del menú de Secretaría:',
+                err
+            );
+        } finally {
+            if (activo) {
+                setLoadingPermisos(false);
+            }
+        }
+    };
+
+    cargarPermisosMenu();
+
+    return () => {
+        activo = false;
+    };
+}, []);
     const [showNewAulaForm, setShowNewAulaForm] = useState(false);
     const [newAula, setNewAula] = useState({ nivelNombre: 'Inicial', gradoNombre: '', codAnioAcademico: '', seccion: '', capacidadMaxima: '25' });
     const [newAulaError, setNewAulaError] = useState('');
@@ -1167,48 +1281,139 @@ const [selectedAulaId, setSelectedAulaId] = useState(null);
                 <div className="dash-body">
                     <aside className="dash-sidebar">
                         <button
-                            className={`sidebar-item ${activeTab === 'matricula' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('matricula')}
-                        >
-                            <IconMatricula /> Matrícula
-                        </button>
-                        <button
-                            className={`sidebar-item ${activeTab === 'pagos' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('pagos')}
-                        >
-                            <IconPagos /> Pagos
-                        </button>
-                        <button
-                            className={`sidebar-item ${activeTab === 'alumnos' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('alumnos')}
-                        >
-                            <IconAlumnos /> Alumnos
-                        </button>
-                        <button
-                            className={`sidebar-item ${activeTab === 'aulas' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('aulas')}
-                        >
-                            <IconAulas /> Aulas
-                        </button>
-                        <button
-                            className={`sidebar-item ${activeTab === 'conceptos' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('conceptos')}
-                        >
-                            <IconConceptos /> Conceptos
-                        </button>
-                        <button
-                            className={`sidebar-item ${activeTab === 'reportes' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('reportes')}
-                        >
-                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2" fill="none"><path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20v-6"></path></svg>
-                            Reportes
-                        </button>
-                        <button
-                            className={`sidebar-item ${activeTab === 'clave' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('clave')}
-                        >
-                            <span className="dots">•••</span> Mi clave
-                        </button>
+    className={`sidebar-item ${
+        !permisosMenu.matricula
+            ? 'disabled'
+            : activeTab === 'matricula'
+                ? 'active'
+                : ''
+    }`}
+    disabled={!permisosMenu.matricula || loadingPermisos}
+    onClick={() => setActiveTab('matricula')}
+    title={
+        !permisosMenu.matricula
+            ? 'No tienes permiso para ver esta sección'
+            : ''
+    }
+>
+    <IconMatricula /> Matrícula
+</button>
+
+<button
+    className={`sidebar-item ${
+        !permisosMenu.pagos
+            ? 'disabled'
+            : activeTab === 'pagos'
+                ? 'active'
+                : ''
+    }`}
+    disabled={!permisosMenu.pagos || loadingPermisos}
+    onClick={() => setActiveTab('pagos')}
+    title={
+        !permisosMenu.pagos
+            ? 'No tienes permiso para ver esta sección'
+            : ''
+    }
+>
+    <IconPagos /> Pagos
+</button>
+
+<button
+    className={`sidebar-item ${
+        !permisosMenu.alumnos
+            ? 'disabled'
+            : activeTab === 'alumnos'
+                ? 'active'
+                : ''
+    }`}
+    disabled={!permisosMenu.alumnos || loadingPermisos}
+    onClick={() => setActiveTab('alumnos')}
+    title={
+        !permisosMenu.alumnos
+            ? 'No tienes permiso para ver esta sección'
+            : ''
+    }
+>
+    <IconAlumnos /> Alumnos
+</button>
+
+<button
+    className={`sidebar-item ${
+        !permisosMenu.aulas
+            ? 'disabled'
+            : activeTab === 'aulas'
+                ? 'active'
+                : ''
+    }`}
+    disabled={!permisosMenu.aulas || loadingPermisos}
+    onClick={() => setActiveTab('aulas')}
+    title={
+        !permisosMenu.aulas
+            ? 'No tienes permiso para ver esta sección'
+            : ''
+    }
+>
+    <IconAulas /> Aulas
+</button>
+
+<button
+    className={`sidebar-item ${
+        !permisosMenu.conceptos
+            ? 'disabled'
+            : activeTab === 'conceptos'
+                ? 'active'
+                : ''
+    }`}
+    disabled={!permisosMenu.conceptos || loadingPermisos}
+    onClick={() => setActiveTab('conceptos')}
+    title={
+        !permisosMenu.conceptos
+            ? 'No tienes permiso para ver esta sección'
+            : ''
+    }
+>
+    <IconConceptos /> Conceptos
+</button>
+
+<button
+    className={`sidebar-item ${
+        !permisosMenu.reportes
+            ? 'disabled'
+            : activeTab === 'reportes'
+                ? 'active'
+                : ''
+    }`}
+    disabled={!permisosMenu.reportes || loadingPermisos}
+    onClick={() => setActiveTab('reportes')}
+    title={
+        !permisosMenu.reportes
+            ? 'No tienes permiso para ver esta sección'
+            : ''
+    }
+>
+    <svg
+        viewBox="0 0 24 24"
+        width="18"
+        height="18"
+        stroke="currentColor"
+        strokeWidth="2"
+        fill="none"
+    >
+        <path d="M18 20V10"></path>
+        <path d="M12 20V4"></path>
+        <path d="M6 20v-6"></path>
+    </svg>
+    Reportes
+</button>
+
+<button
+    className={`sidebar-item ${
+        activeTab === 'clave' ? 'active' : ''
+    }`}
+    onClick={() => setActiveTab('clave')}
+>
+    <span className="dots">•••</span> Mi clave
+</button>
                     </aside>
 
                     {activeTab === 'matricula' ? (
