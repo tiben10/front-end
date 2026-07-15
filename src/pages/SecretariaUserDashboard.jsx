@@ -2688,7 +2688,7 @@ const [loadingPermisos, setLoadingPermisos] = useState(true);
                                                 <td className="action-cell">
                                                     {isEditing ? (
                                                         <>
-                                                            <button className="icon-btn" title="Guardar" onClick={() => saveConcepto(concepto.id)}>✓</button>{' '}
+                                                            <button className="icon-btn" title="Guardar" onClick={() => saveConcepto(concepto)}>✓</button>{' '}
                                                             <button className="icon-btn" title="Cancelar" onClick={cancelEditConcepto}>✕</button>
                                                         </>
                                                     ) : (
