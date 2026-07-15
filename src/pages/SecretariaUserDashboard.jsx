@@ -5,7 +5,7 @@ import { useTabHistory } from '../hooks/useTabHistory';
 import { cambiarPassword } from '../services/usuarioService';
 import { logout, generar2FA } from '../services/authService';
 import { decodeJwt } from '../services/jwt';
-import Reportes from '../components/Reportes';
+
 import { listarAulas, crearAula as crearAulaApi } from '../services/aulaService';
 
 import { listarAlumnos, registrarAlumno } from '../services/alumnoService';
@@ -144,7 +144,7 @@ const tituloSuperiorPorTab = {
     alumnos: 'SECRETARÍA — ALUMNOS',
     aulas: 'SECRETARÍA — GESTIÓN ACADÉMICA',
     conceptos: 'SECRETARÍA — CONCEPTOS / TARIFARIO POR AÑO',
-    reportes: 'SECRETARÍA — REPORTES',
+    
     clave: 'SECRETARÍA — CAMBIAR CLAVE'
 };
 
@@ -260,8 +260,8 @@ const [loadingPermisos, setLoadingPermisos] = useState(true);
                 pagos: tienePermisoVer('pago'),
                 alumnos: tienePermisoVer('alumno'),
                 aulas: tienePermisoVer('aula'),
-                conceptos: tienePermisoVer('concepto'),
-                reportes: tienePermisoVer('reporte')
+                conceptos: tienePermisoVer('concepto')
+            
             };
 
             if (!activo) return;
@@ -1374,27 +1374,7 @@ const [loadingPermisos, setLoadingPermisos] = useState(true);
     <IconConceptos /> Conceptos
 </button>
 
-<button
-    className={`sidebar-item ${
-        activeTab === 'reportes' ? 'active' : ''
-    }`}
-    onClick={() => setActiveTab('reportes')}
->
-    <svg
-        viewBox="0 0 24 24"
-        width="18"
-        height="18"
-        stroke="currentColor"
-        strokeWidth="2"
-        fill="none"
-    >
-        <path d="M18 20V10"></path>
-        <path d="M12 20V4"></path>
-        <path d="M6 20v-6"></path>
-    </svg>
 
-    Reportes
-</button>
 
 <button
     className={`sidebar-item ${
@@ -2740,18 +2720,7 @@ const [loadingPermisos, setLoadingPermisos] = useState(true);
                                 </form>
                             )}
                         </main>
-                    ) : activeTab === 'reportes' ? (
-                        <main
-    className="dash-content"
-    style={{
-        flex: 1,
-        minWidth: 0,
-        width: '100%'
-    }}
->
-    <Reportes />
-</main>
-                    ) : activeTab === 'clave' ? (
+                    )  : activeTab === 'clave' ? (
                         <main className="dash-content" style={{ flex: 1 }}>
                             <h3 className="section-title">Cambiar mi clave</h3>
 
